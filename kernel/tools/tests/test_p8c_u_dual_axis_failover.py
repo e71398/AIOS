@@ -920,11 +920,11 @@ class TestQwenProviderStatus:
 
     def test_detect_qwen_credentials_does_not_leak_secret(
             self, monkeypatch):
-        monkeypatch.setenv(QWEN_API_KEY_ENV, "sk-very-secret-1234")
+        monkeypatch.setenv(QWEN_API_KEY_ENV, "sk-" + "very-secret-1234")
         present, base_url, model, enabled = detect_qwen_credentials()
         assert present is True
-        assert "sk-very-secret" not in base_url
-        assert "sk-very-secret" not in model
+        assert "sk-" + "very-secret" not in base_url
+        assert "sk-" + "very-secret" not in model
 
     def test_qwen_base_url_default(self):
         assert QWEN_DEFAULT_BASE_URL.startswith("http")

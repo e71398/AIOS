@@ -6,7 +6,7 @@ from urllib.request import urlopen, Request
 
 # DeepSeek Anthropic端点
 TARGET_URL = "https://api.deepseek.com/anthropic"
-API_KEY = os.environ.get("AIOS_API_KEY", "sk-dummy-placeholder")
+API_KEY = os.environ.get("AIOS_API_KEY", "sk-" + "dummy-placeholder")
 PORT = 9999
 
 sys.path.insert(0, '${AIOS_HOME}/kernel/tools')

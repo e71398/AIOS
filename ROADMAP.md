@@ -51,3 +51,9 @@ priority, not by date.
 Issues will be created at release time. Labels used: `bug`,
 `enhancement`, `good first issue`, `help wanted`, `provider`, `tools`,
 `security`, `testing`, `architecture`, `documentation`.
+
+## v0.1.0-alpha.2 — CI repair release
+
+- Fixes `pyproject.toml` build-backend (was invalid; now `setuptools.build_meta`).
+- Fixes secret pattern scan false positives in test fixtures (six lines).
+- No new features.

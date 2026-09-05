@@ -71,7 +71,7 @@ class TaskScopedApprovalTests(unittest.TestCase):
             with self.assertRaises(LocalModelGuardError) as ctx:
                 chat([{"role": "user", "content": "PONG"}],
                      model="qwen2.5:0.5b", timeout=2,
-                     task_id="task-env-only-no-approval")
+                     task_id="local-no-approval-required")
             self.assertIn("LOCAL_MODEL_USER_APPROVAL_REQUIRED",
                           str(ctx.exception))
         finally:

@@ -7,7 +7,7 @@ AIOS is a multi-component runtime that orchestrates AI agents, tools, workflows 
 This repository publishes the v0.1.0-alpha.1 source tree for external contributors who want to study,
 audit, extend or harden the system together.
 
-- **Public version:** v0.1.0-alpha.1
+- **Public version:** v0.1.0-alpha.2
 - **Internal development lineage:** 5.2.8
 - **License:** Apache License 2.0
 - **Maturity:** Alpha — not production-ready
