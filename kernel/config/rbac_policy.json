@@ -1,0 +1,83 @@
+{
+  "rbac_version": "1.0",
+  "aios_home": "${AIOS_HOME}",
+  "rings": {
+    "ring_0": {
+      "name": "核心资产层",
+      "description": "行业规范、核心协议、决策逻辑",
+      "access_level": "READ_ONLY",
+      "authorized_agents": [],
+      "write_authorized": [],
+      "paths": [
+        "${AIOS_HOME}/kernel/**",
+        "${AIOS_HOME}/knowledge/industry_specs/**"
+      ]
+    },
+    "ring_1": {
+      "name": "沙盒验证层",
+      "description": "Agent 执行工作区",
+      "access_level": "READ_WRITE_SANDBOXED",
+      "authorized_agents": ["executor-coding", "executor-plc", "verifier-gate"],
+      "paths": [
+        "${AIOS_HOME}/sandbox/**"
+      ]
+    },
+    "ring_2": {
+      "name": "经验更新层",
+      "description": "新技能待审批区",
+      "access_level": "READ_WRITE_APPROVED",
+      "authorized_agents": ["hermes-evolution"],
+      "write_authorized": ["hermes-evolution + human_dual_sign"],
+      "paths": [
+        "${AIOS_HOME}/knowledge/pending_approval/**",
+        "${AIOS_HOME}/knowledge/skill_library/**"
+      ]
+    },
+    "ring_3": {
+      "name": "日志与临时层",
+      "description": "执行流水和临时数据",
+      "access_level": "READ_WRITE_ALL_AGENTS",
+      "authorized_agents": ["*"],
+      "paths": [
+        "${AIOS_HOME}/logs/**",
+        "${AIOS_HOME}/cache/**"
+      ]
+    }
+  },
+  "agent_permissions": {
+    "openclaw": {
+      "read": ["kernel/*", "knowledge/industry_specs/*"],
+      "write": ["logs/*", "checkpoint/wal/*"],
+      "execute": ["agents/executors/*"],
+      "deny": ["knowledge/skill_library/*", "agents/evolution/*"]
+    },
+    "hermes": {
+      "read": ["logs/*", "knowledge/*"],
+      "write": ["knowledge/skill_library/*", "knowledge/memory_archive/*"],
+      "deny": ["kernel/protocols/*", "sandbox/*"]
+    },
+    "executor": {
+      "read": ["knowledge/industry_specs/*"],
+      "write": ["sandbox/*", "logs/task_logs/*"],
+      "deny": ["kernel/*", "knowledge/skill_library/*", "knowledge/memory_archive/*"]
+    }
+  },
+  "forbidden_actions": {
+    "any_agent": [
+      "modify_ring_0_files",
+      "access_etc_passwd",
+      "execute_system_binary",
+      "mount_filesystem",
+      "change_user_id"
+    ],
+    "executor_coding": [
+      "access_ring_0",
+      "write_to_knowledge_base",
+      "network_external_unrestricted"
+    ],
+    "hermes_evolution": [
+      "direct_hardware_control",
+      "bypass_verification"
+    ]
+  }
+}

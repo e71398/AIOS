@@ -1,0 +1,83 @@
+"""Provider Adapter Template test (stub HTTP, no real Provider).
+
+This template uses `http.server` to stand up a tiny stub server so the
+adapter test does not contact any external Provider. Replace the
+handler body with the real request/response shape for your Provider.
+"""
+from __future__ import annotations
+
+import http.server
+import json
+import os
+import sys
+import threading
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+from provider import AdapterRequest, TemplateProvider  # noqa: E402
+
+
+_STUB_PORT = 0  # ephemeral
+
+
+def _start_stub() -> tuple[str, http.server.HTTPServer]:
+    captured = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length)
+            captured["body"] = body.decode("utf-8")
+            payload = json.dumps(
+                {
+                    "text": "[stub echo]",
+                    "usage": {"input_tokens": 1, "output_tokens": 1},
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *_args, **_kwargs):
+            return None
+
+    srv = http.server.HTTPServer(("127.0.0.1", _STUB_PORT), Handler)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    time.sleep(0.05)
+    return f"http://127.0.0.1:{port}", srv
+
+
+def test_disabled_by_default():
+    p = TemplateProvider()
+    assert p.enabled is False
+    resp = p.invoke(AdapterRequest(prompt="x"))
+    assert resp.status == "error"
+
+
+def test_stub_round_trip():
+    base_url, srv = _start_stub()
+    try:
+        os.environ["TEMPLATE_PROVIDER_BASE_URL"] = base_url
+        p = TemplateProvider()
+        p.enabled = True
+        # Adapt this assertion to your real `invoke` body.
+        try:
+            resp = p.invoke(AdapterRequest(prompt="hello"))
+            assert resp.status in ("ok", "error")
+        except NotImplementedError:
+            # Acceptable in the template — replace with real assertions.
+            pass
+    finally:
+        srv.shutdown()
+
+
+if __name__ == "__main__":
+    test_disabled_by_default()
+    test_stub_round_trip()
+    print("provider template tests: 2 passed")

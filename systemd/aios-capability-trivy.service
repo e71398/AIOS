@@ -1,0 +1,29 @@
+# AIOS independent Trivy filesystem security scan (canonical).
+#
+# This unit is the production source of truth for aios-capability-trivy.service.
+# Deployed instance: ~/.config/systemd/user/aios-capability-trivy.service
+#
+# Scan semantics:
+#   1. ExecStartPre downloads the vulnerability DB. Failure aborts the service
+#      (no `-` prefix), so a stale DB never produces a green scan.
+#   2. ExecStart runs the filesystem scan using the just-updated local DB.
+#      Override flags and skip-dirs live in the security-gate drop-in below.
+#
+# This unit intentionally stays minimal so the drop-in can carry the
+# security-gate composition without drift between canonical and deployed.
+[Unit]
+Description=AIOS independent Trivy security scan
+After=aios-core.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=${AIOS_HOME}
+Nice=10
+CPUQuota=50%
+MemoryMax=768M
+TimeoutStartSec=20min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=${AIOS_HOME}/cache/capabilities/trivy ${AIOS_HOME}/logs/capabilities/trivy

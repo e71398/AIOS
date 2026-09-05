@@ -1,0 +1,17 @@
+﻿[Unit]
+Description=AIOS Telegram Entry - polling bot
+After=redis-server.service network.target
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=aios
+WorkingDirectory=${AIOS_HOME}/kernel/tools
+ExecStart=python3 ${AIOS_HOME}/kernel/tools/aios_entry_telegram.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

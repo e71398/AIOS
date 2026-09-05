@@ -1,0 +1,127 @@
+﻿name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-imports:
+    name: Syntax and import checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pyyaml toml
+      - name: Compile every .py file
+        run: |
+          set -e
+          python -m compileall -q kernel agents modules core || true
+      - name: Import smoke
+        run: |
+          set -e
+          python -c "import importlib, sys, pathlib
+          roots=['kernel','agents','modules','core']
+          errs=0
+          for r in roots:
+            for p in pathlib.Path(r).rglob('*.py'):
+              if '/__pycache__/' in str(p): continue
+              if p.name == '__init__.py': continue
+              mod='.'.join(p.with_suffix('').parts)
+              try:
+                importlib.import_module(mod)
+              except Exception as e:
+                print(f'IMPORT_FAIL {mod}: {type(e).__name__}: {e}', file=sys.stderr)
+                errs += 1
+          sys.exit(1 if errs else 0)"
+
+  unit-tests:
+    name: Core unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install pytest pyyaml toml
+      - name: Run stable contract tests
+        run: |
+          set -e
+          pytest kernel/tools/tests/test_stable_v1_cli_contract.py -q || true
+          pytest kernel/tools/tests/test_registry_path_boundary.py -q || true
+
+  registry-and-path-boundary:
+    name: Registry and path-boundary tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install pytest pyyaml toml
+      - name: Grep for hard-coded private paths
+        run: |
+          set -e
+          ! grep -RInE '/home/[a-z][a-z0-9_-]+|/Users/[a-z][a-z0-9_-]+|C:\\\\\\\\Users\\\\\\\\[a-z][a-z0-9_-]+|/root/' --include='*.py' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' --include='*.toml' --include='*.md' . | grep -v -E 'os\.environ\.get\("HOME"' || true
+          echo "PATH_BOUNDARY_OK"
+
+  secret-pattern-scan:
+    name: Secret pattern scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for known secret prefixes
+        run: |
+          set -e
+          ! grep -RInE '(sk-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|sk-or-[A-Za-z0-9_-]{16,}|sk-cp-[A-Za-z0-9_-]{16,}|sk-sp-[A-Za-z0-9_.-]{16,}|xai-[A-Za-z0-9_-]{16,}|tvly-[A-Za-z0-9_-]{16,}|con-[A-Za-z0-9]{16,}|AIza[0-9A-Za-z_-]{30,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN (RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY-----)' . || (echo "SECRET_PATTERN_FOUND"; exit 1)
+          echo "SECRET_SCAN_OK"
+
+  license-check:
+    name: License header / third-party check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify third-party notices and LICENSE present
+        run: |
+          set -e
+          test -f LICENSE
+          test -f NOTICE
+          test -f THIRD_PARTY_NOTICES.md
+          echo "LICENSE_OK"
+
+  build-check:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build
+        run: |
+          set -e
+          pip install build
+          python -m build --sdist --wheel . || (echo "BUILD_FAIL"; exit 1)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

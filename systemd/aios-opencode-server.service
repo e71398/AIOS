@@ -1,0 +1,20 @@
+[Unit]
+Description=AIOS OpenCode execution server (loopback only)
+After=network-online.target
+Wants=network-online.target
+Before=aios-executor-opencode.service
+
+[Service]
+Type=simple
+WorkingDirectory=${AIOS_HOME}/sandbox/coding
+ExecStart=${HOME}/.n/bin/opencode serve --pure --hostname 127.0.0.1 --port 4096
+Restart=on-failure
+RestartSec=3
+Environment=PATH=${HOME}/.n/bin:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=OPENCODE_CONFIG=${AIOS_HOME}/config/opencode-aios.json
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStopSec=20
+
+[Install]
+WantedBy=aios-core.target

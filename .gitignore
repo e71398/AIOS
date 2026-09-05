@@ -1,0 +1,163 @@
+# ─── AIOS gitignore ─── 2026-07-11 加固 ───
+
+# 环境 / 凭据
+.env
+.env.*
+*.env
+config/telegram.json        # Telegram bot token 明文
+config/feishu_*.json        # 飞书凭据
+config/openai_*.key
+config/*.key
+config/*.pem
+config/credentials.json
+
+# 认证 / 凭据 (运行时生成)
+aios_auth_token
+.aios_auth_token
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# 备份 (放在仓库内会产生危险成堆备份文件)
+*.bak
+*.bak.*
+*~
+.cache/
+cache/redis_dump/
+cache/semantic.db
+cache/token_state.json
+cache/knowledge_import_state.json
+cache/vector_db/
+
+# 日志 / WAL
+logs/
+*.log
+logs/**/*.log
+*.pid
+checkpoint/snapshots/*.tar.gz
+checkpoint/wal/
+
+# 沙箱里生成的临时文件
+sandbox/coding/*.py
+sandbox/coding/__pycache__/
+sandbox/.tmp/
+sandbox/coding/aios_*.py
+
+# 状态/锁/临时
+.tmp/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 内置 .git (深度包装)
+kernel/tools/.git/
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# AIOS local runtime and generated artifacts
+backup/
+tmp/
+home/
+.home-bak-*/
+
+extensions/**/__pycache__/
+extensions/**/node_modules/
+extensions/**/.cache/
+extensions/**/venv/
+extensions/**/db/
+
+kernel/**/__pycache__/
+kernel/centers/intelligence_growth_center/*.db
+# Downloaded vulnerability databases and scanner assets
+cache/capabilities/trivy/db/
+cache/capabilities/trivy/policy/content/
+
+# Downloaded scanner executables
+extensions/trivy/bin/
+
+# Embedded external Semgrep rules repository
+# Temporarily excluded from the initial parent-repository baseline.
+extensions/semgrep/rules/
+
+# Generated checkpoints, downloaded executables and runtime snapshots
+checkpoint/manual_pre_opt_*/
+checkpoint/verified/*.tar.gz
+checkpoint/tool_upgrades/
+
+# Sensitive or local configuration history
+checkpoint/config-history/settings_*.json
+checkpoint/config-history/settings_backup.json
+checkpoint/config-history/**/*.jsonl
+checkpoint/config-history/**/*degrade*.json
+
+# Runtime learning data
+knowledge/**/intelligence/*.jsonl
+knowledge/**/*_learning.jsonl
+
+# Runtime databases
+sandbox/coding/config/codex.sqlite3
+sandbox/coding/intel-center-candidate/*.db
+checkpoint/upgrades/intelligence_growth_center/intel.db
+# Sandbox runtime uploads and local nested repository metadata
+sandbox/coding/uploads/
+sandbox/coding/.git/
+
+# Tool-generated caches and health state
+cache/capabilities/trivy/policy/
+cache/tool_health/
+cache/opencode_model_router.json
+
+# Runtime session state and reset snapshots
+checkpoint/config-history/**/session/
+checkpoint/config-history/**/sessions*.json
+
+# Generated knowledge and runtime state
+knowledge/iteration_log/state.json
+knowledge/calibration_reports/
+# Runtime-generated Hermes distilled skills (auto-created by aios_hermes_learn.py)
+knowledge/skill_library/hermes_distilled.json
+
+# Runtime approval queues
+pending_approval/
+
+# Per-tool learning profiles (auto-generated)
+knowledge/tool_learning/
+# Regenerated sandbox cache files
+sandbox/coding/config/cache/
+
+# Sandbox runtime reports and verification outputs
+sandbox/coding/report.txt
+sandbox/coding/e2e_report.txt
+sandbox/coding/openclaw_entry_sim*.txt
+sandbox/coding/openclaw_webchat_repair_522.txt
+sandbox/coding/dag_521_*.txt
+sandbox/coding/l4_approval_e2e.txt
+sandbox/coding/user_openclaw_verify_20260716.txt
+sandbox/coding/aios_report.md
+
+# Local unidentified secret-like file
+sandbox/coding/config/secret_key
+
+# Historical configuration snapshots
+checkpoint/config-history/
+
+# Backup-style upgrade artifacts
+checkpoint/upgrades/*.before
+checkpoint/upgrades/*.orig
+checkpoint/upgrades/*.pre_*
+# Editor and patch backup files
+*.orig

@@ -1,0 +1,20 @@
+[Unit]
+Description=AIOS Codex Responses relay (loopback only)
+After=network-online.target
+Wants=network-online.target
+Before=aios-executor-codex.service
+
+[Service]
+Type=simple
+WorkingDirectory=${AIOS_HOME}/sandbox/coding
+ExecStart=${AIOS_HOME}/kernel/tools/aios_codex_relay_start.sh
+Restart=on-failure
+RestartSec=3
+EnvironmentFile=-${HOME}/.openclaw/.env
+Environment=PATH=${HOME}/.local/bin:${HOME}/.n/bin:/usr/local/bin:/usr/bin:/bin
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStopSec=20
+
+[Install]
+WantedBy=aios-core.target

@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose a new capability for AIOS.
+title: "[enhancement] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AIOS is in Alpha. Feature requests are welcome, but please align
+        with `ROADMAP.md` and `docs/CURRENT_LIMITATIONS.md` first.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What pain point does this address?
+      validations:
+        required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      validations:
+        required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Which component(s) and which docs would change?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - "Provider"
+        - "Tool"
+        - "Orchestrator / Planner / Executor / Reviewer"
+        - "Entry gateway / API"
+        - "Center (autonomy / evolution / intelligence-growth)"
+        - "Docs / DX"
+        - "Other"
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope flags
+      options:
+        - label: "This change requires a default-flip to a Provider."
+        - label: "This change requires a default-flip to a permission."
+        - label: "This change touches auth or network bind defaults."
+        - label: "This change adds CI cost (real Provider call)."
+        - label: "Good first issue for a new contributor."

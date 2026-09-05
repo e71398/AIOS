@@ -1,0 +1,38 @@
+"""Tool Template test. No external calls."""
+from __future__ import annotations
+
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+from tool import TemplateTool, ToolInput  # noqa: E402
+
+
+def test_permission_default_is_deny():
+    t = TemplateTool()
+    assert t.permission == "deny"
+
+
+def test_invoke_is_not_implemented():
+    t = TemplateTool()
+    try:
+        t.invoke(ToolInput(payload={}))
+    except NotImplementedError:
+        return
+    raise AssertionError("expected NotImplementedError")
+
+
+def test_health():
+    t = TemplateTool()
+    h = t.health()
+    assert h["status"] == "ok"
+    assert h["permission"] == "deny"
+
+
+if __name__ == "__main__":
+    test_permission_default_is_deny()
+    test_invoke_is_not_implemented()
+    test_health()
+    print("tool template tests: 3 passed")

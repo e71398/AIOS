@@ -1,0 +1,1 @@
+| <PROVIDER_NAME> | n/a | <PROVIDER_URL> | <LICENSE> | Provider Adapter (off by default) | No |

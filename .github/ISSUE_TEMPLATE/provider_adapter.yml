@@ -1,0 +1,56 @@
+name: Provider Adapter
+description: Propose a new Provider Adapter.
+title: "[provider] "
+labels: ["provider", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read `docs/PROVIDER_ADAPTER.md` first. Default every new adapter to
+        `off`. Never add a real Provider call to CI.
+
+  - type: input
+    id: provider_name
+    attributes:
+      label: Provider name
+      placeholder: "anthropic_http / ollama_local / ..."
+      validations:
+        required: true
+
+  - type: dropdown
+    id: paid
+    attributes:
+      label: Is this a paid Provider?
+      options:
+        - "Yes"
+        - "No (local / free)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract
+    attributes:
+      label: Adapter contract mapping
+      description: How does this Provider map onto AdapterRequest / AdapterResponse?
+      validations:
+        required: true
+
+  - type: textarea
+    id: test_strategy
+    attributes:
+      label: Test strategy
+      description: How will you test it without spending real budget?
+      validations:
+        required: true
+
+  - type: textarea
+    id: budget_policy
+    attributes:
+      label: Budget policy
+      description: Per-task budget defaults.
+
+  - type: textarea
+    id: third_party_notice
+    attributes:
+      label: THIRD_PARTY_NOTICES.md entry
+      description: Paste the row you intend to add.

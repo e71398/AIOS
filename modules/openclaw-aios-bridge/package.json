@@ -1,0 +1,12 @@
+{
+  "name": "@aios/openclaw-bridge",
+  "version": "1.0.0",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.js"],
+    "compat": {
+      "pluginApi": ">=2026.6.10",
+      "minGatewayVersion": ">=2026.6.10"
+    }
+  }
+}

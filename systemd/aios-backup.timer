@@ -1,0 +1,11 @@
+[Unit]
+Description=Run AIOS verified backup and restore drill weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 04:40:00
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
+

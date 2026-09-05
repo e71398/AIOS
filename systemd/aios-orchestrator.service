@@ -1,0 +1,20 @@
+[Unit]
+Description=AIOS Parent Workflow Orchestrator
+After=network-online.target aios-entry-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${AIOS_HOME}
+ExecStart=/usr/bin/python3 ${AIOS_HOME}/kernel/tools/aios_orchestrator.py --daemon
+Restart=on-failure
+RestartSec=3
+EnvironmentFile=-${HOME}/.openclaw/.env
+Environment=AIOS_HOME=${AIOS_HOME}
+Environment=PYTHONUNBUFFERED=1
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStopSec=20
+
+[Install]
+WantedBy=aios-core.target

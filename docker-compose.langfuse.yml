@@ -1,0 +1,16 @@
+# Langfuse: LLM Observability Platform
+# Uses system PostgreSQL (no separate postgres container needed)
+services:
+  langfuse:
+    image: langfuse/langfuse:latest
+    ports:
+      - "3001:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse123@host.docker.internal:5432/langfuse
+      NEXTAUTH_SECRET: langfuse-secret-key-change-in-production
+      NEXTAUTH_URL: http://localhost:3001
+      SALT: langfuse-salt-change-in-production
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"

@@ -1,0 +1,196 @@
+{
+  "protocol_version": "4.0",
+  "system_name": "AIOS_Kernel",
+  "aios_home": "${AIOS_HOME}",
+  "last_updated": "2026-07-05",
+
+  "hierarchy": {
+    "level_0": "User（人类：目标制定者，最终决策者）",
+    "level_1": "Decision_Engine（决策引擎：意图解析，策略制定）",
+    "level_2": "Orchestrator（编排器：任务分发，状态追踪）",
+    "level_3": "Executor（执行器：代码生成，物理动作）",
+    "level_4": "Verifier（验证器：结果校验，安全审计）",
+    "level_5": "Evolution_Engine（演化引擎：经验沉淀，慢循环学习）"
+  },
+
+  "agent_registry": {
+    "dispatcher": {
+      "provider": "OpenClaw",
+      "plugin_path": "${AIOS_HOME}/agents/dispatcher/openclaw",
+      "container": "openclaw-core",
+      "capabilities": [
+        "task_routing",
+        "queue_management",
+        "notification_push",
+        "feishu_integration",
+        "cli_interface",
+        "state_machine"
+      ],
+      "forbidden_actions": [
+        "direct_code_modification",
+        "physical_hardware_control",
+        "knowledge_base_write",
+        "external_api_key_access",
+        "bypass_verification"
+      ],
+      "resource_limit": {
+        "max_concurrent_tasks": 5,
+        "max_memory_mb": 2048,
+        "timeout_seconds": 300
+      },
+      "interface_endpoint": "http://openclaw-core:8080"
+    },
+
+    "evolution_engine": {
+      "provider": "Hermes",
+      "plugin_path": "${AIOS_HOME}/agents/evolution/hermes",
+      "container": "hermes-evolution",
+      "capabilities": [
+        "pattern_recognition",
+        "memory_indexing",
+        "skill_distillation",
+        "experience_summarization",
+        "world_model_calibration",
+        "slow_loop_learning"
+      ],
+      "forbidden_actions": [
+        "realtime_task_dispatch",
+        "code_direct_execution",
+        "external_network_calls",
+        "human_interaction_initiation"
+      ],
+      "loop_mode": "slow_only",
+      "trigger_interval": "24h",
+      "scan_path": "${AIOS_HOME}/logs"
+    },
+
+    "executor_primary": {
+      "provider": "Claude_Code",
+      "plugin_path": "${AIOS_HOME}/agents/executors/claude_code",
+      "container": "executor-claude-code",
+      "priority": 1,
+      "capabilities": ["fullstack_coding", "unit_testing", "refactoring", "code_review"],
+      "sandbox_required": true,
+      "work_dir": "${AIOS_HOME}/sandbox/coding",
+      "fallback_to": "opencode"
+    },
+
+    "executor_secondary": {
+      "provider": "OpenCode",
+      "plugin_path": "${AIOS_HOME}/agents/executors/opencode",
+      "container": "executor-opencode",
+      "priority": 2,
+      "capabilities": ["coding", "debugging", "refactoring"],
+      "sandbox_required": true,
+      "work_dir": "${AIOS_HOME}/sandbox/coding",
+      "fallback_to": "codex"
+    },
+
+    "executor_tertiary": {
+      "provider": "Codex",
+      "plugin_path": "${AIOS_HOME}/agents/executors/codex",
+      "container": "executor-codex",
+      "priority": 3,
+      "capabilities": ["coding", "api_integration", "complex_reasoning"],
+      "sandbox_required": true,
+      "work_dir": "${AIOS_HOME}/sandbox/coding",
+      "fallback_to": null
+    },
+
+    "executor_plc": {
+      "providers": ["PLC_Agent", "EPLAN_Agent"],
+      "container": "executor-plc",
+      "sandbox_required": true,
+      "work_dir": "${AIOS_HOME}/sandbox/plc",
+      "required_prechecks": [
+        "world_model_simulation",
+        "safety_logic_validation",
+        "timing_constraint_check"
+      ],
+      "safety_mode": "strict"
+    },
+
+    "code_editor": {
+      "provider": "VSCode",
+      "plugin_path": "${AIOS_HOME}/agents/tools/vscode",
+      "container": "vscode-server",
+      "capabilities": ["interactive_editing", "debugging", "terminal_access"],
+      "access_mode": "web_ui",
+      "port": 8080,
+      "note": "用于人工审查和深度调试，非自动执行路径"
+    },
+
+    "verifier": {
+      "provider": "Independent_Verifier",
+      "plugin_path": "${AIOS_HOME}/kernel/tools/verify.py",
+      "capabilities": [
+        "exit_code_validation",
+        "syntax_check",
+        "logic_alignment",
+        "physical_constraint_check",
+        "security_scan"
+      ],
+      "pass_threshold": "exit_code_0",
+      "failure_action": "trigger_mid_loop_retry"
+    },
+
+    "world_model": {
+      "provider": "System_WorldModel",
+      "plugin_path": "${AIOS_HOME}/kernel/tools/world_model_runner.py",
+      "capabilities": ["physics_simulation", "causal_inference", "safety_check"]
+    },
+
+    "resource_allocator": {
+      "provider": "System_Resource_Manager",
+      "monitored_resources": [
+        "gpu_memory",
+        "ram_usage",
+        "token_credit",
+        "cpu_load",
+        "disk_io"
+      ],
+      "fallback_strategy": {
+        "gpu_oom": "degrade_to_cpu_model",
+        "ram_exceed_80pct": "queue_pending_tasks",
+        "token_exceed_10_usd": "halt_and_request_human",
+        "cpu_exceed_90pct": "throttle_low_priority_tasks"
+      }
+    }
+  },
+
+  "immutable_rules": [
+    "所有输出必须经过 Verifier 签章后才可交付用户",
+    "Agent 之间仅通过 UUID 指针通信，禁止传递原始长文本",
+    "禁止任何 Agent 跨层权限越界",
+    "涉及物理世界的指令必须先经过 World Model 模拟",
+    "单次任务成本超过 $10 必须暂停并请求人类审批",
+    "连续 3 次中循环修正失败必须发送 [SYSTEM_HALT] 通知",
+    "知识库写入必须经过 Hermes + 人类双重签名",
+    "任何重大决策必须附带 Reasoning_Log"
+  ],
+
+  "cross_agent_protocols": {
+    "task_object_format": {
+      "required_fields": [
+        "Task_ID",
+        "Task_Type",
+        "Data_Pointer_UUID",
+        "Context_Summary",
+        "Priority",
+        "Constraints",
+        "Verification_Criteria"
+      ]
+    },
+    "result_object_format": {
+      "required_fields": [
+        "Task_ID",
+        "Status",
+        "Summary",
+        "Result_Pointer_UUID",
+        "Verification_Status",
+        "Reasoning_Log",
+        "Timestamp"
+      ]
+    }
+  }
+}

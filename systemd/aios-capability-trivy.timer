@@ -1,0 +1,16 @@
+# AIOS independent Trivy filesystem security scan (canonical timer).
+#
+# Deployed instance: ~/.config/systemd/user/aios-capability-trivy.timer
+#
+# Schedule: weekly, with 30m random delay, persistent across reboots.
+[Unit]
+Description=Weekly AIOS independent Trivy security scan
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=30m
+Unit=aios-capability-trivy.service
+
+[Install]
+WantedBy=timers.target

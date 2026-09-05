@@ -1,0 +1,11 @@
+[Unit]
+Description=Run AIOS real end-to-end canary every six hours
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:10:00
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target
+

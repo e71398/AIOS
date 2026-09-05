@@ -1,0 +1,37 @@
+"""Tool Template.
+
+Copy this file to a new module and replace the placeholders. Default
+permission is `deny`. See `docs/TOOL_SECURITY.md`.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class ToolInput:
+    # Replace with your real input fields.
+    payload: dict
+
+
+@dataclass
+class ToolOutput:
+    status: str
+    result: Optional[dict] = None
+    error: Optional[str] = None
+
+
+class TemplateTool:
+    name = "<TOOL_NAME>"
+    permission = "deny"  # do not change without a security review
+
+    def invoke(self, request: ToolInput) -> ToolOutput:
+        # Implement your tool here.
+        raise NotImplementedError
+
+    def health(self) -> dict:
+        return {"status": "ok", "tool": self.name, "permission": self.permission}
+
+    def shutdown(self) -> None:
+        return None

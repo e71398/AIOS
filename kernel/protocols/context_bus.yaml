@@ -1,0 +1,311 @@
+# AIOS v4.0 信息总线协议
+# Context Bus Protocol v1.0
+
+version: "4.0"
+system: "AIOS_Context_Bus"
+transport: "Redis + UUID_Pointer"
+aios_home: "${AIOS_HOME}"
+
+---
+## 第一章：核心传输规则
+
+### 1.1 禁止规则（Hard Rules）
+
+forbidden_transmission:
+  agent_to_agent_raw_text:
+    rule: "严格禁止"
+    reason: "防止 Token 爆炸和上下文衰减"
+    max_chars_allowed: 512
+    enforcement: "protocol_enforcer自动拦截"
+
+  cross_boundary_large_file:
+    rule: "严格禁止"
+    threshold_bytes: 1048576  # 1MB
+    action: "强制压缩并存储到共享内存，返回 UUID"
+
+  natural_language_verbose:
+    rule: "严格限制"
+    max_tokens_per_message: 512
+    required_format: "structured_json"
+
+### 1.2 标准消息格式（Task Object）
+
+task_object_schema:
+  type: "TaskObject"
+  required_fields:
+    Task_ID:
+      type: "string"
+      format: "UUIDv4"
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    Task_Type:
+      type: "enum"
+      values: ["coding", "plc_logic", "research", "document", "verification"]
+
+    Priority:
+      type: "enum"
+      values: ["P0_URGENT", "P1_HIGH", "P2_NORMAL", "P3_LOW"]
+
+    Context_Summary:
+      type: "string"
+      max_chars: 512
+      requirement: "一句话概括任务核心"
+
+    Data_Pointer_UUID:
+      type: "string"
+      description: "指向共享内存中完整上下文数据的 UUID"
+
+    Constraints:
+      type: "object"
+      fields:
+        - "max_cost_usd"
+        - "max_duration_minutes"
+        - "safety_level"
+        - "industry_domain"
+
+    Verification_Criteria:
+      type: "array"
+      description: "验收标准列表，用于 Verifier 判断是否通过"
+
+    Created_By:
+      type: "string"
+      description: "创建者的 Agent ID"
+
+    Created_At:
+      type: "string"
+      format: "ISO8601"
+
+### 1.3 标准消息格式（Result Object）
+
+result_object_schema:
+  type: "ResultObject"
+  required_fields:
+    Task_ID:
+      type: "string"
+      description: "关联的任务ID"
+
+    Status:
+      type: "enum"
+      values: ["SUCCESS", "FAIL", "PARTIAL", "PENDING_HUMAN"]
+
+    Summary:
+      type: "string"
+      max_chars: 512
+      requirement: "一句话结果描述"
+
+    Result_Pointer_UUID:
+      type: "string"
+      description: "指向完整结果数据的 UUID（存储在共享内存）"
+
+    Verification_Status:
+      type: "enum"
+      values: ["VERIFIED", "REJECTED", "PENDING", "SKIPPED"]
+
+    Verification_Details:
+      type: "object"
+      fields:
+        - "verifier_id"
+        - "exit_code"
+        - "error_message"
+        - "retry_count"
+
+    Reasoning_Log:
+      type: "string"
+      max_chars: 2048
+      description: "完整推理链摘要"
+
+    Confidence_Score:
+      type: "float"
+      range: "0.0 - 1.0"
+
+    Execution_Time_Seconds:
+      type: "integer"
+
+    Cost_USD:
+      type: "float"
+
+    Timestamp:
+      type: "string"
+      format: "ISO8601"
+
+---
+## 第二章：总线事件类型
+
+event_types:
+  TASK_CREATED:
+    direction: "upward"
+    from: "Gateway"
+    to: "Orchestrator"
+    payload: "TaskObject"
+
+  TASK_ASSIGNED:
+    direction: "downward"
+    from: "Orchestrator"
+    to: "Executor"
+    payload: "TaskObject + Execution_Context"
+
+  RESULT_SUBMITTED:
+    direction: "upward"
+    from: "Executor"
+    to: "Verifier"
+    payload: "ResultObject"
+
+  VERIFICATION_COMPLETE:
+    direction: "bidirectional"
+    payload: "VerificationReport"
+
+  LEARNING_TRIGGERED:
+    direction: "upward"
+    from: "Verifier"
+    to: "Hermes"
+    payload: "LearningRecord"
+
+  CALIBRATION_ALERT:
+    direction: "upward"
+    from: "WorldModel"
+    to: "DecisionEngine"
+    payload: "CalibrationReport"
+
+  HUMAN_ESCALATION:
+    direction: "upward"
+    from: "System"
+    to: "User"
+    payload: "ApprovalRequest"
+
+---
+## 第三章：共享内存存储规范
+
+shared_memory_partitions:
+  partition_1:
+    name: "raw_data"
+    description: "Agent 执行产生的原始数据"
+    ttl_hours: 168
+    access: "UUID_Pointer_Only"
+    max_size_gb: 50
+
+  partition_2:
+    name: "vector_index"
+    description: "知识库向量索引"
+    ttl_hours: 8760  # 永久
+    access: "Hermes_Exclusive_Write"
+
+  partition_3:
+    name: "task_context"
+    description: "当前任务上下文"
+    ttl_hours: 24
+    access: "All_Agents_Read"
+
+  partition_4:
+    name: "checkpoint_snapshot"
+    description: "系统快照（用于断点恢复）"
+    ttl_hours: 720
+    access: "System_Exclusive"
+
+lifecycle_policy:
+  raw_data:
+    creation: "Agent 执行时自动生成 UUID 并存储"
+    usage: "通过 UUID 指针被其他 Agent 按需提取"
+    cleanup: "任务结束后 7 天自动清理（除非标记为重要）"
+
+  knowledge_data:
+    creation: "仅通过 Hermes 慢循环沉淀"
+    approval: "必须经过人类审批或双签章"
+    cleanup: "永久保留，除非被新版本覆盖"
+
+  checkpoint_data:
+    creation: "每个子任务完成时自动生成"
+    restore: "系统崩溃后自动或手动触发恢复"
+    cleanup: "最新 10 个快照保留，超出自动清理"
+
+---
+## 第四章：Redis 总线配置
+
+redis_config:
+  host: "redis-bus"
+  port: 6379
+  db: 0
+  password: "${REDIS_PASSWORD}"
+
+  key_schema:
+    task_queue: "aios:queue:pending"
+    task_active: "aios:queue:active"
+    task_complete: "aios:queue:completed"
+    task_failed: "aios:queue:failed"
+    session_context: "aios:session:{id}:context"
+    agent_status: "aios:agent:{id}:status"
+    resource_usage: "aios:resource:usage"
+
+  pubsub_channels:
+    - "aios:task:new"
+    - "aios:task:result"
+    - "aios:verification:complete"
+    - "aios:system:alert"
+    - "aios:human:approval"
+
+  memory_limits:
+    max_memory_mb: 4096
+    eviction_policy: "allkeys-lru"
+
+---
+## 第五章：Token 预算管理
+
+token_budget_per_task:
+  total_budget: 8192
+  distribution:
+    context_preparation: 512       # 上下文拼装
+    world_model_simulation: 1024   # 世界模型推演
+    decision_reasoning: 512        # 决策推理
+    executor_coding: 4096          # 执行器编码
+    verification_check: 512        # 验证检查
+    result_summary: 512            # 结果摘要
+    reserved_buffer: 24            # 应急缓冲
+
+  overflow_handling:
+    action: "TRUNCATE_LEAST_IMPORTANT"
+    priority_order: ["result_summary", "context_preparation", "executor_coding"]
+
+---
+## 第六章：协议执行强制器（Protocol Enforcer）
+
+```python
+# 伪代码：协议执行强制器逻辑
+
+class ProtocolEnforcer:
+    def intercept_message(self, message):
+        # 规则1：检查长度
+        if len(message) > 512:
+            self.route_to_storage(message)
+            return self.create_uuid_pointer(message)
+
+        # 规则2：检查格式
+        if not self.is_structured_json(message):
+            self.block_and_log(f"Invalid format from {message.sender}")
+
+        # 规则3：检查权限边界
+        if self.crosses_permission_boundary(message):
+            self.block_and_alert(f"Privilege escalation attempt by {message.sender}")
+
+        return message
+
+    def route_to_storage(self, large_data):
+        uuid = self.generate_uuid()
+        self.redis.set(uuid, large_data, ex=604800)  # 7天TTL
+        return uuid
+```
+
+---
+## 附录：快速参考
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              信息总线速查                                │
+├─────────────────────────────────────────────────────────┤
+│ ✅ Agent间通信 → 必须用 JSON + UUID 指针                  │
+│ ✅ 大文件 → 必须存 Redis，返回 UUID                      │
+│ ✅ 消息长度 → 严格限制 512 字内                          │
+│ ✅ 格式 → 必须为结构化 JSON                              │
+│ ✅ 任务对象 → 必须包含 Task_ID, Data_Pointer_UUID       │
+│ ✅ 结果对象 → 必须包含 Verification_Status              │
+│ ✅ TTL → raw_data 7天，knowledge 永久，checkpoint 30天  │
+└─────────────────────────────────────────────────────────┘
+```

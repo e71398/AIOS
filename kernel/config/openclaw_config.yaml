@@ -1,0 +1,73 @@
+openclaw:
+  version: "4.0"
+  mode: "production"
+  aios_home: "${AIOS_HOME}"
+
+  api:
+    host: "0.0.0.0"
+    port: 8080
+    auth_required: true
+    api_key_header: "X-AIOS-Key"
+
+  cli:
+    port: 8081
+    prompt_file: "/app/config/prompts/openclaw_system_prompt.txt"
+
+  gateway:
+    feishu:
+      enabled: false
+      bot_token_env: "FEISHU_BOT_TOKEN"
+      default_channel: "aiOS_tasks"
+
+    cli:
+      enabled: true
+      alias: "aios"
+
+  orchestration:
+    max_concurrent_tasks: 5
+    task_timeout_seconds: 1800
+    retry_policy:
+      max_attempts: 3
+      backoff_seconds: 30
+
+    dispatcher:
+      strategy: "capability_based"
+      fallback_enabled: true
+      resource_check_before_dispatch: true
+
+  memory:
+    redis:
+      host: "localhost"
+      port: 6379
+      db: 0
+
+    vector_db:
+      host: "localhost"
+      port: 8000
+
+    checkpoint:
+      enabled: true
+      interval_minutes: 30
+
+  logging:
+    level: "INFO"
+    format: "json"
+    output_paths:
+      - "${AIOS_HOME}/logs/task_logs"
+      - "${AIOS_HOME}/logs/error_logs"
+      - "${AIOS_HOME}/logs/audit_logs"
+
+    tracing:
+      enabled: false
+      jaeger_endpoint: "http://localhost:6831"
+      sample_rate: 0.1
+
+  security:
+    rbac_config: "/app/config/rbac_policy.json"
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+
+    audit:
+      enabled: true
+      log_all_actions: true

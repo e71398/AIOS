@@ -1,0 +1,53 @@
+{
+  "hermes_version": "4.0",
+  "mode": "slow_loop_only",
+  "aios_home": "${AIOS_HOME}",
+
+  "scan_config": {
+    "target_path": "${AIOS_HOME}/logs",
+    "scan_interval_seconds": 86400,
+    "trigger_time": "02:00",
+    "pattern": "*.json",
+    "exclude_patterns": ["**/temp/**", "**/.cache/**"]
+  },
+
+  "distill_config": {
+    "output_path": "${AIOS_HOME}/knowledge/skill_library",
+    "auto_approve_threshold": 3,
+    "require_human_approval": true,
+    "skill_format": "markdown",
+    "max_skills": 1000
+  },
+
+  "pattern_recognition": {
+    "enabled": true,
+    "min_occurrence": 3,
+    "categories": [
+      "coding_pattern",
+      "plc_logic_pattern",
+      "error_recovery",
+      "optimization_hint",
+      "industry_knowledge"
+    ]
+  },
+
+  "world_model_calibration": {
+    "enabled": true,
+    "trigger_on_prediction_mismatch": true,
+    "output_report_path": "${AIOS_HOME}/knowledge/calibration_reports"
+  },
+
+  "memory_management": {
+    "short_term_ttl_hours": 168,
+    "long_term_persistence": true,
+    "archive_threshold_tasks": 100,
+    "compression_enabled": true
+  },
+
+  "notification": {
+    "on_skill_distilled": true,
+    "on_calibration_needed": true,
+    "on_pattern_alert": true,
+    "feishu_webhook": "${FEISHU_WEBHOOK}"
+  }
+}

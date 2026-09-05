@@ -1,0 +1,45 @@
+# AIOS runtime and generated data
+backup/
+cache/
+checkpoint/
+logs/
+tmp/
+sandbox/
+extensions/
+archive/
+
+# Version-control and dependency metadata
+.git/
+**/.git/
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+
+# Generated, binary, and oversized artifacts
+*.log
+*.jsonl
+*.sqlite
+*.sqlite3
+*.db
+*.zip
+*.tar
+*.tgz
+*.gz
+*.7z
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.map
+*.min.js
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem

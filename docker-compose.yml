@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+
+  # ============================================================
+  # Redis 中央状态总线
+  # ============================================================
+  redis-bus:
+    image: redis:7-alpine
+    container_name: aios-redis-bus
+    hostname: redis-bus
+    restart: unless-stopped
+
+    command: >
+      redis-server
+      --maxmemory 4096mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+
+    volumes:
+      - ${AIOS_HOME}/cache/redis_dump:/data
+      - ${AIOS_HOME}/redis.conf:/usr/local/etc/redis/redis.conf
+
+    ports:
+      - "6379:6379"
+
+    networks:
+      - aios-net
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================
+  # ChromaDB 向量知识库
+  # ============================================================
+  chroma-db:
+    image: chromadb/chroma:latest
+    container_name: aios-chroma-db
+    hostname: chroma-db
+    restart: unless-stopped
+
+    volumes:
+      - ${AIOS_HOME}/cache/vector_db:/data
+
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      - aios-net
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+  # ============================================================
+  # 链路追踪系统 (Jaeger)
+  # ============================================================
+  jaeger-tracing:
+    image: jaegertracing/all-in-one:latest
+    container_name: aios-jaeger
+    hostname: jaeger
+    restart: unless-stopped
+
+    ports:
+      - "16686:16686"    # UI
+      - "6831:6831/udp"  # Agent 探针
+
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+
+    networks:
+      - aios-net
+
+networks:
+  aios-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16

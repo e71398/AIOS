@@ -1,0 +1,8 @@
+[Unit]
+Description=AIOS - Multi-AI Orchestration System
+After=redis-server.service network.target
+Wants=redis-server.service
+Requires=aios-executor-supervisor.service aios-event-daemon.service aios-entry-gateway.service
+
+[Install]
+WantedBy=multi-user.target

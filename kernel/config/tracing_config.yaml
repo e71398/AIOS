@@ -1,0 +1,65 @@
+tracing:
+  enabled: false
+  provider: "jaeger"
+  endpoint: "http://localhost:6831"
+  service_name: "AIOS_v4.0"
+  sample_rate: 0.1
+
+  instrumentation:
+    openclaw:
+      enabled: true
+      trace_all_dispatch: true
+
+    hermes:
+      enabled: true
+      trace_learning_cycles: true
+
+    executor:
+      enabled: true
+      trace_code_generation: true
+
+    verifier:
+      enabled: true
+      trace_verification_results: true
+
+  storage:
+    type: "local_file"
+    retention_days: 7
+
+monitoring:
+  prometheus:
+    enabled: false
+
+  health_endpoints:
+    - name: "openclaw"
+      url: "http://localhost:8080/health"
+      check_interval: "30s"
+
+    - name: "redis"
+      host: "localhost"
+      port: 6379
+      check_interval: "60s"
+
+alerts:
+  feishu_webhook: "${FEISHU_WEBHOOK}"
+
+  rules:
+    - name: "system_halt"
+      condition: "openclaw.status == 'halted'"
+      severity: "critical"
+      message: "AIOS 系统已暂停，需要人工介入"
+
+    - name: "high_failure_rate"
+      condition: "verifier.fail_rate > 0.3"
+      severity: "warning"
+      message: "验证失败率超过 30%，建议检查执行器状态"
+
+    - name: "resource_exhaustion"
+      condition: "gpu_memory.percent > 90"
+      severity: "warning"
+      message: "GPU 显存超过 90%，系统将自动降级"
+
+    - name: "hermes_stuck"
+      condition: "hermes.last_scan_age > 48h"
+      severity: "warning"
+      message: "Hermes 慢循环超过 48 小时未执行"

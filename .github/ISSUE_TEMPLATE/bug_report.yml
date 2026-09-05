@@ -1,0 +1,78 @@
+name: Bug report
+description: File a bug you can reproduce against AIOS v0.1.0-alpha.1.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please read `docs/CURRENT_LIMITATIONS.md`. Many of the
+        known Alpha limitations are tracked there and may already have an
+        open issue. Do not include real API keys, real user data or real
+        task bodies in this report.
+
+  - type: input
+    id: aios_version
+    attributes:
+      label: AIOS version
+      description: Which release did you reproduce against?
+      placeholder: "v0.1.0-alpha.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: aios_mode
+    attributes:
+      label: Mode
+      description: Were any external providers enabled?
+      options:
+        - "Offline (`AIOS_OFFLINE=1`)"
+        - "Online (one or more providers enabled)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Minimal commands or code that trigger the bug.
+      placeholder: |
+        1. Run `AIOS_OFFLINE=1 ./start.sh start`
+        2. curl ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste logs with secrets redacted.
+      render: shell
+
+  - type: textarea
+    id: source_refs
+    attributes:
+      label: Relevant source files / commits
+      description: Paths in this repo that you suspect, if known.
+
+  - type: checkboxes
+    id: good_first
+    attributes:
+      label: New contributor?
+      options:
+        - label: "I would like to try fixing this myself."
+        - label: "I have a patch I can submit."

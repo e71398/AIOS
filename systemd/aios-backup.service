@@ -1,0 +1,12 @@
+[Unit]
+Description=AIOS Verified Backup and Restore Drill
+After=aios-core.target redis-server.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=${AIOS_HOME}
+ExecStart=/usr/bin/python3 ${AIOS_HOME}/kernel/tools/aios_backup.py create-and-drill
+Environment=AIOS_HOME=${AIOS_HOME}
+NoNewPrivileges=true
+PrivateTmp=true
+

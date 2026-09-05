@@ -1,0 +1,48 @@
+"""Provider Adapter Template.
+
+Copy this file to a new module, replace the placeholders, and
+implement the contract from `docs/PROVIDER_ADAPTER.md`.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class AdapterRequest:
+    prompt: str
+    model: str = "<PROVIDER_DEFAULT_MODEL>"
+    max_tokens: int = 64
+    task_id: Optional[str] = None
+
+
+@dataclass
+class AdapterResponse:
+    status: str
+    text: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    error: Optional[str] = None
+
+
+class TemplateProvider:
+    """Replace `<PROVIDER_NAME>` with your adapter name."""
+
+    name = "<PROVIDER_NAME>"
+    enabled = False  # always start disabled
+
+    def invoke(self, request: AdapterRequest) -> AdapterResponse:
+        if not self.enabled:
+            return AdapterResponse(
+                status="error",
+                error=f"{self.name} is disabled; enable explicitly in features.toml",
+            )
+        # Implement real call here. Never log request/response bodies.
+        raise NotImplementedError
+
+    def health(self) -> dict:
+        return {"status": "ok", "provider": self.name, "enabled": self.enabled}
+
+    def shutdown(self) -> None:
+        return None

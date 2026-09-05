@@ -1,0 +1,17 @@
+﻿[Unit]
+Description=AIOS Executor Supervisor - manages opencode/claude/codex
+After=redis-server.service network.target
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=aios
+WorkingDirectory=${AIOS_HOME}/kernel/tools
+ExecStart=${HOME}/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/bin/python3 ${AIOS_HOME}/kernel/tools/aios_executor_supervisor.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

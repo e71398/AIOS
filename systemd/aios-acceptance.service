@@ -1,0 +1,20 @@
+[Unit]
+Description=AIOS Real End-to-End Canary
+After=aios-core.target aios-entry-gateway.service aios-orchestrator.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=${AIOS_HOME}
+ExecStart=/usr/bin/python3 ${AIOS_HOME}/kernel/tools/aios_acceptance.py --canary
+Environment=AIOS_HOME=${AIOS_HOME}
+# P8D composite canary gate: the canary sender is the only sender
+# whose real-task routing decisions are honoured by the production
+# routing engine. ``AIOS_ROUTING_CANARY_ALLOWED_SENDERS`` keeps the
+# legacy P8C-F single-source gate closed by default in the routing
+# engine (see :mod:`aios_routing_policy`); the acceptance service
+# is the one operator that needs the P8D form, so it sets the
+# variable here.
+Environment=AIOS_ROUTING_CANARY_ALLOWED_SENDERS=aios-canary
+NoNewPrivileges=true
+PrivateTmp=true
+

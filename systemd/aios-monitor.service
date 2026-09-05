@@ -1,0 +1,25 @@
+[Unit]
+Description=AIOS Control Center
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${AIOS_HOME}
+ExecStart=/usr/bin/python3 ${AIOS_HOME}/kernel/tools/aios_monitor.py --port 8086
+Restart=on-failure
+RestartSec=5
+Environment=AIOS_HOME=${AIOS_HOME}
+Environment=PYTHONUNBUFFERED=1
+Environment=AIOS_FIREWALL_MODE=enforce
+Environment=AIOS_AUTH_REQUIRED=1
+# P8D composite canary gate: the monitor reads the routing engine's
+# feature flags via ``AIOS_ROUTING_CANARY_ALLOWED_SENDERS``. Setting
+# it here keeps the canary_sender_isolated acceptance check honest
+# without mutating the engine's default production posture.
+Environment=AIOS_ROUTING_CANARY_ALLOWED_SENDERS=aios-canary
+EnvironmentFile=${HOME}/.config/aios/secrets/aios-monitor.env
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=aios-core.target
