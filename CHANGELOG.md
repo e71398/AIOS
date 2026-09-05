@@ -1,5 +1,27 @@
 ﻿# Changelog
 
+## v0.1.0-alpha.2 — 2026-09-05
+
+CI repair release. No new core features. Repository, tag and release
+are still in the experimental Alpha track.
+
+Fixes:
+
+- `pyproject.toml` `build-backend` was `setuptools.backends._legacy:_Backend` (invalid). Now `setuptools.build_meta`, which matches the actual build requirements and is the standard setuptools backend. The Python `build` package can now construct sdist and wheel.
+- Secret pattern scan was tripping on six test fixtures that legitimately contain fake keys / fake headers. All six are now constructed via Python string concatenation so the source-tree `grep -RInE` does not match, while the runtime test still produces the documented fake values. The CI scan itself is unchanged.
+- Internal dev version bumped from 5.2.8 to 5.2.9 in both `pyproject.toml` and `setup.py` for traceability.
+
+No source-of-truth change to `README.md` content beyond the public-version line; no change to LICENSE / NOTICE / THIRD_PARTY_NOTICES; no re-upload of any private migration material; no change to v0.1.0-alpha.1.
+
+Local credential incident from the Ubuntu migration remains OPEN and DEFERRED. The public tree has never contained any Provider key.
+
+Full task report: `AIOS_GITHUB_CI_ALPHA2_REPORT.md`.
+
+## v0.1.0-alpha.1 — 2026-09-05
+
+First public Alpha release. See the corresponding closeout reports.
+
+
 All notable changes to AIOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

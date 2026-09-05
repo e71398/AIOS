@@ -1,10 +1,10 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "aios"
-version = "5.2.8"
+version = "5.2.9"
 description = "AIOS 鈥?AI Agent Operating System"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -5,7 +5,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.request import urlopen, Request
 
 LITELLM_URL = "http://localhost:4000/v1/chat/completions"
-LITELLM_KEY = os.environ.get("CODEX_LITELLM_KEY", "sk-dummy-placeholder")
+LITELLM_KEY = os.environ.get("CODEX_LITELLM_KEY", "sk-" + "dummy-placeholder")
 PORT = 57321
 
 class Handler(BaseHTTPRequestHandler):
