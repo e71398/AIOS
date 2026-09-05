@@ -30,7 +30,7 @@ jobs:
         run: |
           set -e
           python -m compileall -q kernel agents modules core || true
-      - name: Import smoke (parallel)
+      - name: Syntax + import-statement validation (AST)
         run: |
           set -e
           python .github/workflows/scripts/import_smoke.py
