@@ -22,10 +22,15 @@ PER_FILE_TIMEOUT = int(os.environ.get("IMPORT_SMOKE_PER_FILE_TIMEOUT", "3"))
 OVERALL_DEADLINE = int(os.environ.get("IMPORT_SMOKE_OVERALL_DEADLINE", str(12 * 60)))
 MAX_WORKERS = int(os.environ.get("IMPORT_SMOKE_MAX_WORKERS", "8"))
 
+# Determine repo root: in CI use $GITHUB_WORKSPACE; locally allow override.
 REPO_ROOT = pathlib.Path(os.environ.get(
     "GITHUB_WORKSPACE",
     str(pathlib.Path(__file__).resolve().parents[3])
-))
+)).resolve()
+
+# Add repo root to sys.path so "import kernel.X.Y" works without installing
+# the package first. This mirrors what `python -m kernel.X.Y` would do.
+sys.path.insert(0, str(REPO_ROOT))
 
 
 def to_module_name(repo_root: pathlib.Path, file_path: pathlib.Path) -> str:
