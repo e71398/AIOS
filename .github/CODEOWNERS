@@ -1,0 +1,23 @@
+# AIOS CODEOWNERS
+# Format: pattern @owner
+# The default owner for everything in the repo is the repo owner.
+# Individual paths may declare specific owners.
+
+# Default
+*       @e71398
+
+# CI workflows
+/.github/      @e71398
+
+# Security-sensitive areas (review required)
+/SECURITY.md   @e71398
+/docs/CURRENT_LIMITATIONS.md @e71398
+/docs/ARCHITECTURE.md        @e71398
+
+# Version / release surface
+/pyproject.toml   @e71398
+/setup.py          @e71398
+/CHANGELOG.md      @e71398
+/ROADMAP.md        @e71398
+/README.md         @e71398
+/README.zh-CN.md   @e71398

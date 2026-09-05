@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="aios",
-    version="5.2.9",
+    version="0.1.0a3",
     description="AIOS — AI Agent Operating System",
     python_requires=">=3.11",
     install_requires=[
