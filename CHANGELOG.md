@@ -17,9 +17,19 @@ Local credential incident from the Ubuntu migration remains OPEN and DEFERRED. T
 
 Full task report: `AIOS_GITHUB_CI_ALPHA2_REPORT.md`.
 
-## v0.1.0-alpha.1 — 2026-09-05
+## v0.1.0-alpha.3 — 2026-09-05
 
-First public Alpha release. See the corresponding closeout reports.
+Final stabilization release for the AIOS public tree.
+
+Changes from v0.1.0-alpha.2:
+
+- **Version consistency**: `pyproject.toml` and `setup.py` are now `0.1.0a3` (PEP 440 alpha). The previous internal `5.2.x` scheme was disconnected from the public Git tag scheme. The Git Tag remains `v0.1.0-alpha.3` and the Python distribution version is `0.1.0a3`; both derive from the same source-of-truth `pyproject.toml` `[project].version`.
+- **CI stability**: the `Syntax and import checks` job was timing out at the 15-minute limit because the original `importlib.import_module` loop is sequential and slow on the project's modules. The new `.github/workflows/scripts/import_smoke.py` runs imports in parallel (8 workers) with a 3-second per-file timeout and a 12-minute overall deadline. Same intent (every file is attempted, failures cause non-zero exit, no file is silently skipped); runs in well under a minute on the CI runner. The CI scanner regex itself is unchanged.
+- **File count explanation**: `git archive` (used here) honors `.gitignore` and excludes `.env.example` (matches the `.env.*` pattern) and `kernel/centers/intelligence_growth_center/intel.db` (explicit rule). The previous `bsdtar` archive used for v0.1.0-alpha.1 did not honor `.gitignore` and contained 351 files; the `git archive` baseline contains 349 files. The difference is exactly the two `.gitignore`-excluded files. Both archives contain the same shipped source.
+- **Community**: Discussions enabled. Welcome discussion pinned in Announcements. Milestone `v0.1.0-alpha.3` created and the existing release-related issues assigned to it. Repository Topics, Description, and labels kept consistent.
+- **Branch protection**: `main` is now protected (no force-push, no direct push, squash-merge only, conversation-resolution required, latest CI required status checks must pass).
+
+This release does not change AIOS business code or claim any new capabilities. It is the final public-stabilization cut on the Alpha track.
 
 
 All notable changes to AIOS will be documented in this file.

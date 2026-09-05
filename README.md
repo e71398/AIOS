@@ -4,11 +4,12 @@
 > Status: Alpha — not production-ready.
 
 AIOS is a multi-component runtime that orchestrates AI agents, tools, workflows and provider adapters.
-This repository publishes the v0.1.0-alpha.1 source tree for external contributors who want to study,
+This repository publishes the v0.1.0-alpha.3 source tree for external contributors who want to study,
 audit, extend or harden the system together.
 
-- **Public version:** v0.1.0-alpha.2
-- **Internal development lineage:** 5.2.8
+- **Public version:** v0.1.0-alpha.3
+- **Python distribution version:** 0.1.0a3 (PEP 440 alpha)
+- **Public Git tag:** v0.1.0-alpha.3
 - **License:** Apache License 2.0
 - **Maturity:** Alpha — not production-ready
 
@@ -29,7 +30,7 @@ audited independently.
 | Product readiness | NOT_READY |
 | `POST /task` normal entry E2E pass rate | 0 / 5 |
 | MVP usable | NO |
-| Public release | v0.1.0-alpha.1 — clearly Alpha |
+| Public release | v0.1.0-alpha.3 — still Alpha |
 | Default provider | OFF (MiniMax and all external providers are off by default) |
 
 The system is honest about what it can and cannot do. The list below is based on the actual code
