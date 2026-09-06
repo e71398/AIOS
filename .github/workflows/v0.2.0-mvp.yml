@@ -1,0 +1,60 @@
+name: v0.2.0-mvp
+
+on:
+  push:
+    branches: [main]
+    tags: ['v0.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v020-mvp-tests:
+    name: AIOS v0.2.0 MVP tests (Linux / offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AIOS_MVP_OFFLINE: "1"
+      AIOS_MVP_HOST: "127.0.0.1"
+      AIOS_MVP_PORT: "18801"
+      AIOS_MVP_DATA_DIR: ".aios_mvp_ci"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest requests pyyaml
+      - name: Compile the MVP package
+        run: |
+          set -e
+          python -m compileall -q aios_v020_mvp
+      - name: MVP smoke import
+        run: |
+          set -e
+          python -c "import aios_v020_mvp; from aios_v020_mvp import config, workflow, planner, executor, reviewer, orchestrator, server, cli; print('imports ok, version', aios_v020_mvp.__version__)"
+      - name: MVP unit tests (pytest)
+        run: |
+          set -e
+          pytest aios_v020_mvp/tests/test_unit.py -v
+      - name: MVP 5/5 E2E scenarios
+        run: |
+          set -e
+          python aios_v020_mvp/tests/test_e2e_mvp.py
+      - name: MVP integration (spawned server)
+        run: |
+          set -e
+          python aios_v020_mvp/examples/test_integration.py
+      - name: Upload MVP data dir (for debugging only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aios-v020-mvp-data
+          path: .aios_mvp_ci
+          if-no-files-found: ignore
