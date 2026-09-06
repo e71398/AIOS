@@ -13,6 +13,23 @@ audit, extend or harden the system together.
 - **License:** Apache License 2.0
 - **Maturity:** Alpha — not production-ready
 
+
+## v0.2.0 usable MVP
+
+A new package, `aios_v020_mvp/`, ships in this release alongside
+the alpha source tree. The MVP delivers the full user-facing
+flow end-to-end on a single Python process:
+
+    POST /task -> Workflow -> Planner -> Executor (real model + file tools)
+                -> Reviewer (strict) -> Result persistence
+                -> GET /task/<id>   -> GET /task/<id>/artefacts/<path>
+
+E2E status: **5/5 normal-entry scenarios pass**.
+Unit tests: 11/11 pass.
+
+See `aios_v020_mvp/README.md` for the API contract and
+`aios_v020_mvp/tests/test_e2e_mvp.py` for the canonical 5/5
+E2E suite.
 ## What AIOS Is
 
 AIOS is a long-running service that accepts user requests through an HTTP entry gateway,

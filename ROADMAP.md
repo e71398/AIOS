@@ -1,5 +1,21 @@
 # Roadmap
 
+## v0.2.0 MVP (released in this tag)
+
+The `aios_v020_mvp/` package that ships with this release
+satisfies items 1.1-1.5 from the original roadmap: the
+`POST /task` -> Orchestrator normal entry path is open, the
+Planner and Reviewer emit JSON reliably, and the 5/5
+normal-entry E2E suite passes. The remaining items (1.6
+canary suite, 1.7 test ordering, the multi-process systemd
+daemon model) are still tracked under "1. Stabilize the core
+loop" and apply to the alpha tree, not the MVP.
+
+The MVP is a separate, self-contained Python package and
+ships as an additive layer on top of the alpha tree. Both
+co-exist.
+
+
 AIOS is in Alpha. The items below are tracked publicly and will appear as
 GitHub issues on the public tracker. They are ordered roughly by
 priority, not by date.
@@ -57,3 +73,4 @@ Issues will be created at release time. Labels used: `bug`,
 - Fixes `pyproject.toml` build-backend (was invalid; now `setuptools.build_meta`).
 - Fixes secret pattern scan false positives in test fixtures (six lines).
 - No new features.
+
