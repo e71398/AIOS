@@ -85,36 +85,154 @@ def test_tool_registry_default(workdir):
     assert res.status == "ok" and res.result["content"] == "hi"
 
 
+class _ScriptedProvider:
+    """Deterministic provider that emits valid role JSON.
+
+    Used to validate the orchestrator wires planner/executor/reviewer
+    correctly without depending on OfflineTestProvider (which is
+    intentionally dumb).
+    """
+
+    name = "scripted"
+
+    def chat(self, request):
+        from aios_v020_mvp.providers import ProviderResponse
+        joined = "\n".join(str(m.get("content", "")) for m in request.messages).lower()
+        if "planner" in joined:
+            body = json.dumps({
+                "plan_id": "p1",
+                "summary": "plan for hello task",
+                "steps": [
+                    {"id": "s1", "kind": "file_write", "tool": "file_write",
+                     "description": "write", "args": {"path": "hello.txt"}},
+                ],
+                "acceptance": ["hello.txt was created"],
+            })
+        elif "executor" in joined:
+            body = json.dumps({
+                "actions": [
+                    {"kind": "tool_call", "tool": "file_write",
+                     "args": {"path": "hello.txt", "content": "hi"}},
+                ],
+                "summary": "Completed task",
+                "finish_reason": "stop",
+            })
+        else:
+            body = json.dumps({
+                "verdict": "accept",
+                "score": 0.9,
+                "checks": [
+                    {"criterion": "hello.txt was created",
+                     "passed": True, "evidence": "present"},
+                ],
+                "notes": "ok",
+            })
+        return ProviderResponse(
+            text=body, input_tokens=10, output_tokens=20,
+            finish_reason="stop", raw={"scripted": True},
+        )
+
+    def health(self):
+        return {"ok": True, "provider": self.name, "provider_type": "real_llm"}
+
+
 def test_planner_emits_plan(workdir):
-    from aios_v020_mvp.orchestrator import build_orchestrator
-    orch = build_orchestrator()
-    wf = orch.submit("Write a file called hello.txt with a greeting.")
-    orch.planner.build_plan(wf)
-    assert wf.plan is not None
-    assert "steps" in wf.plan and isinstance(wf.plan["steps"], list)
-    assert wf.stage == "planned"
+    """Planner must parse valid plan JSON from a real provider."""
+    import aios_v020_mvp.orchestrator as om
+    from aios_v020_mvp.config import load_config
+    scripted = _ScriptedProvider()
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(om, "_build_provider", lambda spec, dp, cfg: scripted)
+    try:
+        cfg = load_config()
+        orch = om.build_orchestrator(cfg)
+        wf = orch.submit("Write a file called hello.txt with a greeting.")
+        orch.planner.build_plan(wf)
+        assert wf.plan is not None
+        assert "steps" in wf.plan and isinstance(wf.plan["steps"], list)
+        assert wf.stage == "planned"
+    finally:
+        monkeypatch.undo()
 
 
 def test_executor_runs_tool_calls(workdir):
-    from aios_v020_mvp.orchestrator import build_orchestrator
-    orch = build_orchestrator()
-    wf = orch.submit("Write a file called plan.txt with some content.")
-    orch.planner.build_plan(wf)
-    orch.executor.execute(wf)
-    artefacts = wf.execution["artefacts"]
-    assert any(a["path"] == "plan.txt" and a["size_bytes"] > 0 for a in artefacts)
+    """Executor must run tool_calls emitted by a real provider."""
+    import aios_v020_mvp.orchestrator as om
+    from aios_v020_mvp.config import load_config
+    scripted = _ScriptedProvider()
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(om, "_build_provider", lambda spec, dp, cfg: scripted)
+    try:
+        cfg = load_config()
+        orch = om.build_orchestrator(cfg)
+        wf = orch.submit("Write a file called plan.txt with some content.")
+        orch.planner.build_plan(wf)
+        orch.executor.execute(wf)
+        artefacts = wf.execution["artefacts"]
+        assert any(a["path"] == "hello.txt" and a["size_bytes"] > 0 for a in artefacts)
+    finally:
+        monkeypatch.undo()
 
 
 def test_reviewer_accepts_valid_work(workdir):
-    from aios_v020_mvp.orchestrator import build_orchestrator
-    orch = build_orchestrator()
-    wf = orch.submit("Write a file called review.txt with content.")
-    orch.planner.build_plan(wf)
-    orch.executor.execute(wf)
-    verdict = orch.reviewer.review(wf)
-    assert verdict["verdict"] == "accept"
-    assert verdict["accepted"] is True
-    assert wf.stage == "completed"
+    """Reviewer must accept a valid verdict from a real provider."""
+    import aios_v020_mvp.orchestrator as om
+    from aios_v020_mvp.config import load_config
+    scripted = _ScriptedProvider()
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(om, "_build_provider", lambda spec, dp, cfg: scripted)
+    try:
+        cfg = load_config()
+        orch = om.build_orchestrator(cfg)
+        wf = orch.submit("Write a file called review.txt with content.")
+        orch.planner.build_plan(wf)
+        orch.executor.execute(wf)
+        verdict = orch.reviewer.review(wf)
+        assert verdict["verdict"] == "accept"
+        assert verdict["accepted"] is True
+        assert wf.stage == "completed"
+    finally:
+        monkeypatch.undo()
+
+
+def test_offline_test_provider_is_dumb():
+    """OfflineTestProvider must NOT produce role-shaped JSON."""
+    from aios_v020_mvp.providers import (
+        OfflineTestProvider, OFFLINE_TEST_PROVIDER_NAME, ProviderRequest,
+    )
+    p = OfflineTestProvider()
+    req = ProviderRequest(
+        messages=[
+            {"role": "system", "content": "You are an AIOS Planner. Output JSON."},
+            {"role": "user", "content": "Write a file called foo.txt with bar."},
+        ],
+        model="offline-test",
+    )
+    resp = p.chat(req)
+    parsed = json.loads(resp.text)
+    assert parsed["note"] == "offline_test_response"
+    assert "tokens" in parsed
+    assert "steps" not in parsed
+    assert "actions" not in parsed
+    assert "verdict" not in parsed
+    h = p.health()
+    assert h["provider_type"] == OFFLINE_TEST_PROVIDER_NAME
+    assert h["inference_ready"] is False
+    assert h["offline_test"] is True
+
+
+def test_offline_test_provider_cannot_substitute_for_planner():
+    """OfflineTestProvider response must FAIL the planner parser."""
+    from aios_v020_mvp.providers import OfflineTestProvider, ProviderError
+    from aios_v020_mvp.planner import Planner
+    import aios_v020_mvp.workflow as wfmod
+    p = OfflineTestProvider()
+    planner = Planner(provider=p, model="offline-test")
+    workflow = wfmod.Workflow(id="w1", task="Write a file called foo.txt with bar.")
+    with pytest.raises(ProviderError):
+        planner.build_plan(workflow)
+
+
 
 
 class _RejectProvider:
@@ -202,8 +320,13 @@ def test_health_endpoint_reports_providers(workdir):
 
 
 def test_synchronous_submit_runs_inline(workdir):
-    """Submitting a task with async=False should return the final result
-    inside the POST response, no polling required."""
+    """Submitting a task with async=False returns the final result
+    inside the POST response, no polling required.
+
+    Uses the OfflineTestProvider for end-to-end POST/GET plumbing
+    verification; successful completion of the workflow is
+    separately exercised by tests that script a real provider.
+    """
     import urllib.request
     from aios_v020_mvp.config import load_config
     from aios_v020_mvp.server import build_gateway
@@ -225,12 +348,10 @@ def test_synchronous_submit_runs_inline(workdir):
             payload = json.loads(resp.read().decode("utf-8"))
         assert resp.status == 200
         assert payload["ok"] is True
-        assert payload["stage"] == "completed"
-        assert payload["review"]["verdict"] == "accept"
-        assert any(
-            a["path"] == "sync.txt"
-            for a in payload["result"]["artefacts"]
-        )
+        assert payload["stage"] in ("completed", "failed")
+        # Real end-to-end success is exercised in STEP 4 with
+        # LocalAI as the real provider.
+        assert payload["task_id"]
     finally:
         gw.shutdown()
 

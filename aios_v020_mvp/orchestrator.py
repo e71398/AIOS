@@ -30,7 +30,8 @@ from .persistence import FileResultStore, JSONStore
 from .planner import Planner
 from .providers import (
     HTTPChatProvider,
-    LocalProvider,
+    OfflineTestProvider,
+    OFFLINE_TEST_PROVIDER_NAME,
     Provider,
     ProviderError,
     build_http_provider,
@@ -50,19 +51,14 @@ log = logging.getLogger("aios_v020_mvp.orchestrator")
 
 def _build_provider(spec, default_provider: str, config: MVPConfig) -> Provider:
     name = spec.provider
-    if name == "local":
-        return LocalProvider(model=spec.model)
-    if name in ("minimax", "openai", "anthropic"):
-        try:
-            return build_http_provider(name, spec.model)
-        except ProviderError:
-            log.warning(
-                "Falling back to local provider; %s requested but API key missing",
-                name,
-            )
-            return LocalProvider(model="mvp-local")
-    log.warning("Unknown provider %r; falling back to local", name)
-    return LocalProvider(model="mvp-local")
+    if name == "local" or name == OFFLINE_TEST_PROVIDER_NAME:
+        return OfflineTestProvider(model=spec.model)
+    if name in ("minimax", "openai", "anthropic", "localai"):
+        # Real LLM providers must succeed; do NOT silently fall back
+        # to the offline stub if the key is missing.
+        return build_http_provider(name, spec.model)
+    log.warning("Unknown provider %r; falling back to %s", name, OFFLINE_TEST_PROVIDER_NAME)
+    return OfflineTestProvider(model="mvp-local")
 
 
 @dataclass

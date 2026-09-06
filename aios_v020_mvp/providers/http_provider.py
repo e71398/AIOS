@@ -53,6 +53,15 @@ _PROFILES: Dict[str, Dict[str, str]] = {
         "model_default": os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest"),
         "key_env": "ANTHROPIC_API_KEY",
     },
+    "localai": {
+        "base": os.environ.get(
+            "LOCALAI_API_BASE", "http://127.0.0.1:8080/v1"
+        ),
+        "model_default": os.environ.get(
+            "LOCALAI_MODEL", "qwen2.5-coder-7b-instruct-q5_K_M"
+        ),
+        "key_env": "LOCALAI_API_KEY",
+    },
 }
 
 
@@ -66,10 +75,14 @@ def build_http_provider(provider: str, model: str) -> "HTTPChatProvider":
         raise ProviderError(f"unknown http provider: {provider!r}")
     profile = _PROFILES[name]
     api_key = os.environ.get(profile["key_env"], "")
-    if not api_key:
+    if not api_key and name != "localai":
         raise ProviderError(
             f"{profile['key_env']} not set; cannot use {name} provider"
         )
+    if not api_key:
+        # LocalAI commonly allows unauthenticated access. Use a benign
+        # placeholder so the Authorization header stays well-formed.
+        api_key = "not-needed"
     return HTTPChatProvider(
         name=name,
         base_url=profile["base"],
@@ -146,7 +159,9 @@ class HTTPChatProvider(Provider):
         return {
             "ok": True,
             "provider": self.name,
+            "provider_type": "real_llm",
             "model": self.model,
             "base_url": self.base_url,
             "has_key": bool(self.api_key),
+            "inference_ready": bool(self.api_key),
         }

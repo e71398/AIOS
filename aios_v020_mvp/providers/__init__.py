@@ -3,16 +3,17 @@
 Defines a small, deterministic interface for chat completion
 providers. Two concrete adapters ship:
 
-    * ``LocalProvider``     - deterministic offline generator that
-                              satisfies the same response contract
-                              as an HTTP provider. This is the
-                              MVP default and is used to exercise
-                              the full Planner / Executor / Reviewer
-                              flow without any external service.
-    * ``HTTPChatProvider``  - OpenAI-compatible HTTP client used
-                              for MiniMax, OpenAI, Anthropic (via
-                              an OpenAI-compat shim) and any other
-                              server that exposes
+    * ``OfflineTestProvider`` - OFFLINE TEST STUB. NOT a real LLM.
+                              Returns a fixed JSON envelope for
+                              every request. Used only when
+                              ``AIOS_MVP_OFFLINE=1`` is set. Do
+                              not use for production validation.
+    * ``HTTPChatProvider``   - OpenAI-compatible HTTP client used
+                              for MiniMax, OpenAI, Anthropic, the
+                              bundled ``localai`` profile (which
+                              defaults to LocalAI on
+                              ``http://127.0.0.1:8080/v1``) and any
+                              other server that exposes
                               ``POST /v1/chat/completions``.
 
 The provider interface intentionally returns plain dicts with
@@ -30,7 +31,7 @@ from .base import (
     ROLE_USER,
     ROLE_ASSISTANT,
 )
-from .local_provider import LocalProvider
+from .local_provider import OfflineTestProvider, OFFLINE_TEST_PROVIDER_NAME
 from .http_provider import HTTPChatProvider, build_http_provider
 
 __all__ = [
@@ -41,7 +42,8 @@ __all__ = [
     "ROLE_SYSTEM",
     "ROLE_USER",
     "ROLE_ASSISTANT",
-    "LocalProvider",
+    "OfflineTestProvider",
+    "OFFLINE_TEST_PROVIDER_NAME",
     "HTTPChatProvider",
     "build_http_provider",
 ]
