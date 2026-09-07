@@ -152,10 +152,15 @@ class Executor:
                 ensure_ascii=False,
             )
             turn2_messages = [
-                {"role": ROLE_SYSTEM, "content": EXECUTOR_SYSTEM},
+                {"role": ROLE_SYSTEM, "content": REPAIR_SYSTEM},
                 {"role": ROLE_USER, "content": prompt},
                 {"role": ROLE_ASSISTANT, "content": raw},
-                {"role": ROLE_USER, "content": feedback},
+                {"role": ROLE_SYSTEM, "content": (
+                    "You have just read the file content above. You MUST "
+                    "now output a file_write tool_call with the real "
+                    "deliverable. Do NOT use a respond action. Output "
+                    "ONLY the JSON envelope with a file_write action."
+                )},
             ]
             envelope, raw, in_tok, out_tok = self._call_with_repair(
                 turn2_messages, expected_role="executor",
