@@ -146,13 +146,10 @@ class Planner:
 
     @staticmethod
     def _try_envelope(text: str, expected_role: str):
-        obj = extract_first_json(text)
-        if obj is None:
-            return None, ContractError(
-                "no JSON object in response", reason="no_json_object",
-            )
+        from .structured_contract import parse_role_response
+
         try:
-            return validate_envelope(obj, expected_role), None
+            return parse_role_response(text, expected_role), None
         except ContractError as exc:
             return None, exc
 

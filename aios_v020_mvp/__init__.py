@@ -26,5 +26,5 @@ The MVP keeps the role boundaries from the AIOS architecture:
     * Result Store   - persists workflow state + artefacts.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.0a1"
 __all__ = ["__version__"]

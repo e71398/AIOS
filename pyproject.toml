@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aios"
-version = "0.1.0a3"
+version = "0.2.0a1"
 description = "AIOS 鈥?AI Agent Operating System"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,3 +36,7 @@ namespaces = false
 
 [project.urls]
 Homepage = "https://github.com/e71398/aios"
+
+[project.scripts]
+aios-mvp-server = "aios_v020_mvp.server:main"
+aios-mvp-cli = "aios_v020_mvp.cli:main"

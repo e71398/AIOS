@@ -52,8 +52,9 @@ from .workflow import Workflow, WorkflowStage
 
 
 EXECUTOR_SYSTEM = (
-    "You are the AIOS Executor. Given a plan, emit concrete actions. "
-    "Output EXACTLY one JSON object, no prose, no markdown fences.\n\n"
+    "You are the AIOS Executor. Given a plan, emit concrete tool "
+    "actions. Output EXACTLY one JSON object, no prose, no markdown "
+    "fences.\n\n"
     "Top-level keys:\n"
     "  schema_version : must be \"aios-v020-1.0\"\n"
     "  role           : must be \"executor\"\n"
@@ -69,14 +70,18 @@ EXECUTOR_SYSTEM = (
     "  {\"kind\":\"tool_call\",\"tool\":\"file_write\",\"args\":{\"path\":\"...\",\"content\":\"...\"}}\n"
     "  {\"kind\":\"tool_call\",\"tool\":\"file_list\",\"args\":{\"path\":\"\"}}\n"
     "  {\"kind\":\"respond\",\"text\":\"final user-facing text\"}\n\n"
-    "If you write a file, include BOTH path and content. Paths must be "
-    "relative (the sandbox takes care of the rest). "
-    "IMPORTANT: the user message includes an `input_files` object with "
-    "the real content of files available in the sandbox. When the task "
-    "asks you to summarise, review or report on a file, derive your "
-    "content from that real `input_files` material — never write "
-    "placeholder text such as 'will be written here'. Respond with the "
-    "JSON only."
+    "RULES:\n"
+    "  1. The user message lists WORKSPACE FILES as metadata only "
+    "(path, name, size, allowed tools). It NEVER contains file content.\n"
+    "  2. To read a file's content you MUST emit a file_read tool_call. "
+    "After the host executes your actions the tool results (with the "
+    "real content, read by the HOST) are returned to you in a follow-up "
+    "message; derive your response from those results.\n"
+    "  3. If you write a file, include BOTH path and content, and make "
+    "sure the content is a real deliverable derived from the tool "
+    "results — never placeholder text such as 'will be written here'.\n"
+    "  4. Paths must be relative (the sandbox takes care of the rest).\n"
+    "Respond with the JSON only."
 )
 
 
@@ -94,39 +99,117 @@ class Executor:
     def execute(self, workflow: Workflow) -> Dict[str, Any]:
         if workflow.plan is None:
             raise ValueError("workflow has no plan; run Planner first")
-        # Give the model the ACTUAL content of the files already in the
-        # workflow sandbox (seeded via POST /task "files"). Without this
-        # the model can only parrot whatever placeholder text the plan
-        # happened to contain; with it the model can produce real
-        # summaries / reviews derived from real file contents.
-        input_files: Dict[str, str] = {}
-        try:
-            for art in self.file_store.list(workflow.id)[:10]:
-                try:
-                    input_files[art.rel_path] = self.file_store.read(
-                        workflow.id, art.rel_path,
-                    )[:8000]
-                except Exception:
-                    continue
-        except Exception:
-            input_files = {}
+        # Sandbox METADATA only — never file content. The model must
+        # emit file_read to obtain content, which the HOST executes and
+        # returns in a follow-up turn. PROMPT_PRELOADED_FILE_CONTENT=0
+        # is an auditable invariant enforced by this module.
+        sandbox_files = self._sandbox_metadata(workflow.id)
         prompt = json.dumps(
             {
                 "task": workflow.task,
                 "plan": workflow.plan,
-                "input_files": input_files,
+                "workspace": {
+                    "files": sandbox_files,
+                    "allowed_tools": ["file_read", "file_write", "file_list"],
+                },
             },
             ensure_ascii=False,
         )
+        messages = [
+            {"role": ROLE_SYSTEM, "content": EXECUTOR_SYSTEM},
+            {"role": ROLE_USER, "content": prompt},
+        ]
+        # Turn 1: model emits read / introspection actions.
         envelope, raw, in_tok, out_tok = self._call_with_repair(
-            [
+            messages, expected_role="executor",
+        )
+        turn1_actions = self._normalise_actions(envelope)
+        tool_results: List[ToolResult] = []
+        for action in turn1_actions:
+            if action["kind"] != "tool_call":
+                continue
+            tool_results.append(self._run_tool(action, workflow.id))
+
+        read_results = [
+            r for r in tool_results
+            if r.tool in ("file_read", "file_list") and r.status == "ok"
+        ]
+        actions_record = list(turn1_actions)
+        if read_results:
+            # Turn 2: feed back the REAL host tool results and let the
+            # model produce the final deliverable (e.g. file_write).
+            feedback = json.dumps(
+                {
+                    "tool_results": self._tool_results_for_feedback(read_results),
+                    "instruction": (
+                        "These are the REAL results of the file tools "
+                        "executed by the HOST. If the task requires "
+                        "producing a file, now emit the file_write "
+                        "tool_call with the real deliverable content. "
+                        "Respond with the usual JSON envelope only."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+            turn2_messages = [
                 {"role": ROLE_SYSTEM, "content": EXECUTOR_SYSTEM},
                 {"role": ROLE_USER, "content": prompt},
-            ],
-            expected_role="executor",
+                {"role": ROLE_ASSISTANT, "content": raw},
+                {"role": ROLE_USER, "content": feedback},
+            ]
+            envelope, raw, in_tok, out_tok = self._call_with_repair(
+                turn2_messages, expected_role="executor",
+            )
+            turn2_actions = self._normalise_actions(envelope)
+            for action in turn2_actions:
+                if action["kind"] != "tool_call":
+                    continue
+                tool_results.append(self._run_tool(action, workflow.id))
+            actions_record = actions_record + [
+                a for a in turn2_actions if a["kind"] == "tool_call"
+            ]
+
+        work_product = {
+            "schema_version": envelope.get("schema_version"),
+            "role": envelope.get("role"),
+            "status": envelope.get("status"),
+            "notes": envelope.get("notes", ""),
+            "summary": envelope["data"].get("summary", ""),
+            "actions": actions_record,
+            "tool_results": [r.to_dict() for r in tool_results],
+            "artefacts": self._collect_artefacts(tool_results),
+            "provider": {
+                "name": self.provider.name,
+                "model": self.model,
+                "input_tokens": in_tok,
+                "output_tokens": out_tok,
+            },
+            "prompt_preloaded_file_content": False,
+            "raw_executor_response": raw,
+        }
+        workflow.execution = work_product
+        workflow.transition(
+            WorkflowStage.EXECUTING, note="executor produced work product",
         )
+        return work_product
+
+    def _sandbox_metadata(self, workflow_id: str) -> List[Dict[str, Any]]:
+        """Return path/name/size metadata for files already in the
+        workflow sandbox. NEVER returns file content."""
+        meta: List[Dict[str, Any]] = []
+        try:
+            for art in self.file_store.list(workflow_id)[:20]:
+                meta.append({
+                    "path": art.rel_path,
+                    "name": art.rel_path.rsplit("/", 1)[-1],
+                    "size_bytes": art.size_bytes,
+                })
+        except Exception:
+            return meta
+        return meta
+
+    def _normalise_actions(self, envelope: Dict[str, Any]) -> List[Dict[str, Any]]:
         actions = envelope["data"].get("actions", [])
-        # Backward compat: also accept ``steps`` (a planner-style envelope).
         if not actions:
             actions = envelope["data"].get("steps", [])
         normalised: List[Dict[str, Any]] = []
@@ -151,35 +234,30 @@ class Executor:
                 text = str(action.get("text") or "").strip()
                 if text:
                     normalised.append({"kind": "respond", "text": text})
-        tool_results: List[ToolResult] = []
-        for action in normalised:
-            if action["kind"] != "tool_call":
-                continue
-            invocation = ToolInvocation(tool=action["tool"], args=action["args"])
-            result = self.tools.invoke(invocation, workflow.id, self.file_store)
-            tool_results.append(result)
-        work_product = {
-            "schema_version": envelope.get("schema_version"),
-            "role": envelope.get("role"),
-            "status": envelope.get("status"),
-            "notes": envelope.get("notes", ""),
-            "summary": envelope["data"].get("summary", ""),
-            "actions": normalised,
-            "tool_results": [r.to_dict() for r in tool_results],
-            "artefacts": self._collect_artefacts(tool_results),
-            "provider": {
-                "name": self.provider.name,
-                "model": self.model,
-                "input_tokens": in_tok,
-                "output_tokens": out_tok,
-            },
-            "raw_executor_response": raw,
-        }
-        workflow.execution = work_product
-        workflow.transition(
-            WorkflowStage.EXECUTING, note="executor produced work product",
-        )
-        return work_product
+        return normalised
+
+    def _run_tool(self, action: Dict[str, Any], workflow_id: str) -> ToolResult:
+        invocation = ToolInvocation(tool=action["tool"], args=action["args"])
+        return self.tools.invoke(invocation, workflow_id, self.file_store)
+
+    @staticmethod
+    def _tool_results_for_feedback(
+        results: List[ToolResult], max_chars: int = 6000,
+    ) -> List[Dict[str, Any]]:
+        out = []
+        for r in results:
+            body = (r.result or {}).get("content")
+            if isinstance(body, str) and len(body) > max_chars:
+                body = body[:max_chars] + "\n...[truncated by host]"
+            out.append({
+                "tool": r.tool,
+                "status": r.status,
+                "path": (r.result or {}).get("path"),
+                "size_bytes": (r.result or {}).get("size_bytes"),
+                "content": body,
+                "error": r.error,
+            })
+        return out
 
     def _call_with_repair(
         self, messages: List[Dict[str, str]], expected_role: str,
@@ -222,13 +300,10 @@ class Executor:
 
     @staticmethod
     def _try_envelope(text: str, expected_role: str):
-        obj = extract_first_json(text)
-        if obj is None:
-            return None, ContractError(
-                "no JSON object in response", reason="no_json_object",
-            )
+        from .structured_contract import parse_role_response
+
         try:
-            env = validate_envelope(obj, expected_role)
+            env = parse_role_response(text, expected_role)
         except ContractError as exc:
             return None, exc
         data = env["data"]

@@ -9,12 +9,40 @@ the :class:`~aios_v020_mvp.persistence.FileResultStore`.
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
+import time as _time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 
+# Environment-driven tool-execution sink. Set AIOS_TOOL_SINK to a
+# writable path to append one JSON line per REAL host-side tool
+# execution (file_read / file_write / file_list). This gives the
+# closeout harness an auditable record that tools were actually
+# executed by the host and lets the E2E gate count per-tool calls.
+_TOOL_SINK_PATH = os.environ.get("AIOS_TOOL_SINK", "").strip()
+_TOOL_SINK_LOCK = threading.Lock()
+
+
+def _env_tool_sink(record: Dict[str, Any]) -> None:
+    if not _TOOL_SINK_PATH:
+        return
+    try:
+        line = json.dumps(record, ensure_ascii=False)
+    except Exception:
+        return
+    with _TOOL_SINK_LOCK:
+        try:
+            with open(_TOOL_SINK_PATH, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except Exception:
+            pass
+
+
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9_./-]")
+
 
 
 class ToolError(RuntimeError):
@@ -101,15 +129,26 @@ class ToolRegistry:
                 error=f"unknown tool: {invocation.tool}",
             )
         try:
-            return definition.handler(invocation, workflow_id, context)
+            result = definition.handler(invocation, workflow_id, context)
         except ToolError as exc:
-            return ToolResult(tool=invocation.tool, status="error", error=str(exc))
+            result = ToolResult(tool=invocation.tool, status="error", error=str(exc))
         except Exception as exc:  # last-resort guard so a tool bug doesn't kill the workflow
-            return ToolResult(
+            result = ToolResult(
                 tool=invocation.tool,
                 status="error",
                 error=f"{type(exc).__name__}: {exc}"[:300],
             )
+        _env_tool_sink({
+            "ts": _time.time(),
+            "tool": invocation.tool,
+            "workflow_id": workflow_id,
+            "status": result.status,
+            "path": (result.result or {}).get("path"),
+            "size_bytes": (result.result or {}).get("size_bytes"),
+            "error": result.error,
+            "host_executed": True,
+        })
+        return result
 
     def invoke_many(
         self,

@@ -44,6 +44,9 @@ class ContractError(RuntimeError):
         "wrong_field_type",
         "unknown_kind",
         "schema_version_mismatch",
+        "multiple_conflicting_json",
+        "multiple_json_identical",
+        "malformed_json",
     )
 
     def __init__(self, message: str, reason: str = "unknown") -> None:
@@ -74,34 +77,139 @@ def strip_markdown_fences(text: str) -> str:
     return s.strip()
 
 
-def extract_first_json(text: str) -> Optional[Any]:
-    """Return the first JSON value that ``text`` contains, or None.
+def _find_top_level_json_values(text: str) -> List[Any]:
+    """Return every top-level JSON value in ``text``, in order.
 
-    Tries three strategies in order:
-
-      1. Direct ``json.loads(text)``.
-      2. Strip markdown fences and try again.
-      3. Brute-force: walk every ``{`` / ``[`` position and try
-         ``raw_decode`` until one succeeds.
+    Uses ``json.JSONDecoder.raw_decode`` at every ``{`` / ``[`` offset,
+    then discards candidates that are nested inside a larger candidate
+    so that a single object containing nested objects is counted as
+    ONE value, not N.
     """
     if not text:
-        return None
-    cleaned = text.strip()
+        return []
+    decoder = json.JSONDecoder()
+    cleaned = (text or "").strip()
+    spans = []
+    for m in re.finditer(r"[\[{]", cleaned):
+        try:
+            obj, end = decoder.raw_decode(cleaned, m.start())
+            spans.append((m.start(), end, obj))
+        except json.JSONDecodeError:
+            continue
+    top = []
+    for idx, (st, en, obj) in enumerate(spans):
+        contained = any(
+            other[0] < st and other[1] >= en
+            for j, other in enumerate(spans)
+            if j != idx
+        )
+        if not contained:
+            top.append(obj)
+    return top
+
+
+def _looks_truncated(text: str) -> bool:
+    """Heuristic: response starts a JSON value but ends before it
+    closes (e.g. max_tokens cut mid-object)."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return False
+    if cleaned.endswith("}"):
+        return False
+    # If json.loads fails on the whole text and the first non-space
+    # char opens a value that is not closed, treat as truncated.
+    try:
+        json.loads(cleaned)
+        return False
+    except json.JSONDecodeError:
+        pass
+    first = cleaned.lstrip()[:1]
+    if first not in ("{", "["):
+        return False
+    # Count braces as a cheap sanity check.
+    opens = cleaned.count("{") + cleaned.count("[")
+    closes = cleaned.count("}") + cleaned.count("]")
+    last_char = cleaned.rstrip()[-1:]
+    if opens > closes and last_char not in ("}", "]"):
+        return True
+    return False
+
+
+def resolve_single_json(text: str):
+    """Resolve exactly one JSON value from a model response.
+
+    Policy:
+      * A response that IS exactly one JSON value: accepted.
+      * A response that is exactly one markdown-fenced JSON value:
+        accepted after the fence is stripped.
+      * A response with one JSON value plus surrounding prose:
+        accepted.
+      * A response containing MULTIPLE top-level JSON values that are
+        semantically identical (deep-equal): accepted, but flagged in
+        the returned diagnostics as ``{"duplicates": N}``.
+      * A response containing MULTIPLE top-level JSON values that are
+        semantically CONFLICTING: REJECTED with
+        ``ContractError(multiple_conflicting_json)``.
+      * Empty / malformed / truncated responses: REJECTED with the
+        corresponding reason.
+
+    Returns ``(obj, diagnostics_dict)`` and raises :class:`ContractError`
+    otherwise.
+    """
+    if text is None or not str(text).strip():
+        raise ContractError("response is empty", "empty_response")
+    cleaned = str(text).strip()
+
+    # Strategy 1: the whole response is JSON.
     for attempt in (cleaned, strip_markdown_fences(cleaned)):
         if not attempt:
             continue
         try:
-            return json.loads(attempt)
-        except json.JSONDecodeError:
-            pass
-    decoder = json.JSONDecoder()
-    for match in re.finditer(r"[\[{]", cleaned):
-        try:
-            obj, _ = decoder.raw_decode(cleaned, match.start())
-            return obj
+            return json.loads(attempt), {"parser": "exact"}
         except json.JSONDecodeError:
             continue
-    return None
+
+    # Strategy 2: enumerate top-level candidates.
+    values = _find_top_level_json_values(cleaned)
+    if not values:
+        if _looks_truncated(cleaned):
+            raise ContractError(
+                "response was truncated mid-JSON", "truncated_json",
+            )
+        raise ContractError(
+            "no JSON object found in response", "no_json_object",
+        )
+    if len(values) == 1:
+        return values[0], {"parser": "single_candidate"}
+
+    # Multiple candidates: deduplicate by deep equality.
+    seen = []
+    for v in values:
+        if v not in seen:
+            seen.append(v)
+    if len(seen) == 1:
+        # All identical — accept, but record it so the caller can audit.
+        return seen[0], {"parser": "multiple_identical", "duplicates": len(values)}
+    raise ContractError(
+        f"response contains {len(seen)} conflicting JSON objects "
+        f"(duplicates={len(values)}); refusing to pick one silently",
+        "multiple_conflicting_json",
+    )
+
+
+def extract_first_json(text: str) -> Optional[Any]:
+    """Legacy compatibility entry point.
+
+    Returns the single resolved JSON value, or None if the response is
+    empty, truncated, malformed, or contains CONFLICTING JSON objects.
+    Prefer :func:`resolve_single_json` in new code so the precise
+    reason is available.
+    """
+    try:
+        obj, _ = resolve_single_json(text)
+        return obj
+    except ContractError:
+        return None
 
 
 def validate_envelope(obj: Any, expected_role: str) -> Dict[str, Any]:
@@ -177,4 +285,18 @@ def repair_prompt(role: str, previous_output: str, error: str) -> Dict[str, str]
             f"Respond with the corrected JSON object now."
         ),
     }
+
+
+def parse_role_response(text: str, expected_role: str):
+    """Resolve AND validate a role response in one step.
+
+    Runs the multi-JSON safety gate (:func:`resolve_single_json`), then
+    validates the envelope shape. Any violation raises
+    :class:`ContractError` with a precise reason (e.g.
+    ``multiple_conflicting_json``, ``truncated_json``).
+    """
+    obj, diag = resolve_single_json(text)
+    env = validate_envelope(obj, expected_role)
+    env["_parse_diagnostics"] = diag
+    return env
 
