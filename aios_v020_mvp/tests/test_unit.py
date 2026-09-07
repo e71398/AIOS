@@ -97,35 +97,69 @@ class _ScriptedProvider:
 
     def chat(self, request):
         from aios_v020_mvp.providers import ProviderResponse
-        joined = "\n".join(str(m.get("content", "")) for m in request.messages).lower()
-        if "planner" in joined:
+        # Detect role from the system prompt — that's the only reliable
+        # signal now that the orchestrator also sends the previous
+        # role's output (which contains keywords like "plan") in the
+        # user message.
+        system_content = ""
+        for m in request.messages:
+            if str(m.get("role", "")).lower() == "system":
+                system_content = str(m.get("content", "")).lower()
+                break
+        if "aios planner" in system_content or "planner" in system_content[:200]:
+            role = "planner"
+        elif "aios executor" in system_content or "executor" in system_content[:200]:
+            role = "executor"
+        else:
+            role = "reviewer"
+        if role == "planner":
             body = json.dumps({
-                "plan_id": "p1",
-                "summary": "plan for hello task",
-                "steps": [
-                    {"id": "s1", "kind": "file_write", "tool": "file_write",
-                     "description": "write", "args": {"path": "hello.txt"}},
-                ],
-                "acceptance": ["hello.txt was created"],
+                "schema_version": "aios-v020-1.0",
+                "role": "planner",
+                "status": "ok",
+                "data": {
+                    "goal": "plan for hello task",
+                    "steps": [
+                        {"id": "s1", "action": "file_write",
+                         "tool": "file_write",
+                         "arguments": {"path": "hello.txt",
+                                       "content": "hi from planner"}},
+                    ],
+                    "expected_output": "hello.txt created",
+                    "acceptance_criteria": ["hello.txt was created"],
+                },
+                "notes": "",
             })
-        elif "executor" in joined:
+        elif role == "executor":
             body = json.dumps({
-                "actions": [
-                    {"kind": "tool_call", "tool": "file_write",
-                     "args": {"path": "hello.txt", "content": "hi"}},
-                ],
-                "summary": "Completed task",
-                "finish_reason": "stop",
+                "schema_version": "aios-v020-1.0",
+                "role": "executor",
+                "status": "ok",
+                "data": {
+                    "actions": [
+                        {"kind": "tool_call", "tool": "file_write",
+                         "args": {"path": "hello.txt", "content": "hi"}},
+                    ],
+                    "summary": "Completed task",
+                    "finish_reason": "stop",
+                },
+                "notes": "",
             })
         else:
             body = json.dumps({
-                "verdict": "accept",
-                "score": 0.9,
-                "checks": [
-                    {"criterion": "hello.txt was created",
-                     "passed": True, "evidence": "present"},
-                ],
-                "notes": "ok",
+                "schema_version": "aios-v020-1.0",
+                "role": "reviewer",
+                "status": "ok",
+                "data": {
+                    "verdict": "accept",
+                    "score": 0.9,
+                    "checks": [
+                        {"criterion": "hello.txt was created",
+                         "passed": True, "evidence": "present"},
+                    ],
+                    "notes": "ok",
+                },
+                "notes": "",
             })
         return ProviderResponse(
             text=body, input_tokens=10, output_tokens=20,

@@ -134,6 +134,14 @@ def _resolve_spec(
     provider = os.environ.get(env_provider, default_provider).strip().lower()
     default_model = "mvp-local" if provider == "local" else "unknown-model"
     model = os.environ.get(env_model, default_model).strip()
+    # If the per-role env var was not set and the resolved provider
+    # is localai, fall back to the LOCALAI_MODEL default.
+    if (
+        env_model not in os.environ
+        and provider == "localai"
+        and os.environ.get("LOCALAI_MODEL")
+    ):
+        model = os.environ["LOCALAI_MODEL"].strip()
     return ProviderSpec(
         provider=provider,
         model=model,

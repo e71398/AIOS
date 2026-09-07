@@ -228,6 +228,27 @@ class _Handler(BaseHTTPRequestHandler):
             self.gateway.orchestrator.json_store.update(
                 f"wf:{workflow.id}", **{"sender": sender}
             )
+        # Optional input-file ingestion. Callers may seed the workflow
+        # sandbox with read-only inputs so the Executor's file_read
+        # tool can operate on real content. Paths stay INSIDE the
+        # per-workflow sandbox (the store sanitises them), so this
+        # never widens the sandbox boundary.
+        seed_files = body.get("files")
+        ingested = []
+        if isinstance(seed_files, dict):
+            store = self.gateway.orchestrator.file_store
+            for rel, content in list(seed_files.items())[:20]:
+                if not isinstance(rel, str) or not isinstance(content, str):
+                    continue
+                try:
+                    art = store.write(workflow.id, rel, content)
+                    ingested.append(art.rel_path)
+                except Exception as exc:
+                    log.warning("seed file %r rejected: %s", rel, exc)
+            if ingested:
+                self.gateway.orchestrator.json_store.update(
+                    f"wf:{workflow.id}", **{"seed_files": ingested}
+                )
         if run_async:
             self.gateway.worker.enqueue(workflow.id)
             self._write(202, {
